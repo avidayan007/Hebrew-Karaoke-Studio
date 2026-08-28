@@ -1,0 +1,8 @@
+{
+  "name": "Hebrew Karaoke Studio",
+  "short_name": "Karaoke Studio",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#050d16",
+  "theme_color": "#07111c"
+}
