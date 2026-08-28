@@ -1,4 +1,4 @@
-// Hebrew Karaoke Studio Web v1.40 — sync view as four lyric lines with word-by-word highlight
+// Hebrew Karaoke Studio Web v1.40 — sync view as four lyric lines with orange synced words
 (function(){
   const list=document.getElementById('wordList');
   if(!list)return;
@@ -20,7 +20,7 @@
       display:inline-block;color:#f5f8fb;padding:1px 2px;border-radius:5px;
       cursor:pointer;transition:color .12s ease,background .12s ease,transform .12s ease;
     }
-    .hksSyncWord.done{color:#45d173}
+    .hksSyncWord.done{color:#ffb23c}
     .hksSyncWord.current{color:#ffb23c;background:#ffb23c1c;transform:scale(1.06)}
     .hksSyncWord.future{color:#f5f8fb}
     @media(max-width:520px){
