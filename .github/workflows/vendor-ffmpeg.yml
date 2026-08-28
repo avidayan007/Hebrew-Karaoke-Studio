@@ -1,0 +1,34 @@
+name: Vendor FFmpeg Assets
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vendor-ffmpeg.yml'
+permissions:
+  contents: write
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install FFmpeg packages
+        run: npm install @ffmpeg/ffmpeg@0.12.15 @ffmpeg/util@0.12.2 @ffmpeg/core@0.12.10
+      - name: Copy browser assets into repo
+        run: |
+          rm -rf vendor/ffmpeg
+          mkdir -p vendor/ffmpeg/ffmpeg vendor/ffmpeg/util vendor/ffmpeg/core
+          cp -R node_modules/@ffmpeg/ffmpeg/dist/esm/. vendor/ffmpeg/ffmpeg/
+          cp -R node_modules/@ffmpeg/util/dist/esm/. vendor/ffmpeg/util/
+          cp -R node_modules/@ffmpeg/core/dist/umd/. vendor/ffmpeg/core/
+          find vendor/ffmpeg -maxdepth 2 -type f -print
+      - name: Commit vendored assets
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add vendor/ffmpeg
+          git diff --cached --quiet || git commit -m 'Vendor FFmpeg assets for same-origin Safari loading'
+          git push
