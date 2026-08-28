@@ -10,7 +10,6 @@
   `;
   document.head.appendChild(style);
 
-  // Paste button for lyrics from the system clipboard.
   const lyrics=$('#lyricsText');
   if(lyrics && !$('#pasteLyricsBtn')){
     const paste=document.createElement('button');
@@ -27,14 +26,12 @@
         lyrics.focus();
         setStatus('המילים הודבקו בהצלחה');
       }catch(e){
-        // Fallback for iOS privacy restrictions: focus the textarea so the native Paste menu is immediately available.
         lyrics.focus();
         setStatus('Safari חסם הדבקה אוטומטית — לחץ לחיצה ארוכה באזור המילים ובחר ״הדבק״');
       }
     };
   }
 
-  // Real cancel button for an active FFmpeg render.
   const renderBtn=$('#dualExportBtn');
   if(renderBtn && !$('#cancelExportBtn')){
     const cancel=document.createElement('button');
@@ -42,22 +39,19 @@
     renderBtn.insertAdjacentElement('afterend',cancel);
 
     const refresh=()=>{
-      const busy=!!window.exportBusy;
+      const busy=!!exportBusy;
       cancel.classList.toggle('show',busy);
       cancel.disabled=!busy;
     };
     setInterval(refresh,250);refresh();
 
     cancel.onclick=()=>{
-      if(!window.exportBusy)return;
+      if(!exportBusy)return;
       cancel.disabled=true;
       setExportState('עוצר את הרינדור…',0);
-      try{
-        if(window.ffmpegInstance && typeof window.ffmpegInstance.terminate==='function') window.ffmpegInstance.terminate();
-      }catch(e){console.warn('terminate failed',e)}
-      try{window.ffmpegInstance=null}catch(e){}
-      try{window.renderStage=''}catch(e){}
-      // renderDual's catch/finally finishes cleanup and releases the export button.
+      try{if(ffmpegInstance && typeof ffmpegInstance.terminate==='function') ffmpegInstance.terminate()}catch(e){console.warn('terminate failed',e)}
+      ffmpegInstance=null;
+      renderStage='';
       setTimeout(()=>setExportState('הרינדור נעצר על ידך',0),150);
     };
   }
