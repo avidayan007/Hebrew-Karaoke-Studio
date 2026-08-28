@@ -1,0 +1,6 @@
+{
+  "name":"hebrew-karaoke-studio",
+  "version":"1.21.0",
+  "private":true,
+  "engines":{"node":">=20"}
+}
