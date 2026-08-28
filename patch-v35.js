@@ -5,7 +5,7 @@
   if(!preview||!lyrics)return;
 
   const KEY='hksLyricsFontSizePx';
-  const MIN=18, MAX=110, STEP=4, DEFAULT=48;
+  const MIN=18, MAX=110, STEP=1, DEFAULT=48;
 
   const style=document.createElement('style');
   style.textContent=`
@@ -74,7 +74,6 @@
   minus?.addEventListener('click',e=>{stop(e);apply(size-STEP,true)});
   plus?.addEventListener('click',e=>{stop(e);apply(size+STEP,true)});
 
-  // Double tap the size readout to restore the original size.
   value?.addEventListener('dblclick',e=>{stop(e);apply(DEFAULT,true)});
 
   apply(size,false);
