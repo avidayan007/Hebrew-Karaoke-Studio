@@ -40,13 +40,14 @@
   const c=canvas2.getContext('2d');
   let selected=-1,dragging=-1;
 
+  const isTimed=w=>!!w&&w.time!=null&&Number.isFinite(Number(w.time));
   function duration(){return Number(audioEl.duration)||Number(audioBuffer?.duration)||0}
-  function synced(){try{return Array.isArray(words)?words.map((w,i)=>({w,i})).filter(x=>Number.isFinite(Number(x.w.time))):[]}catch(_){return[]}}
+  function synced(){try{return Array.isArray(words)?words.map((w,i)=>({w,i})).filter(x=>isTimed(x.w)):[]}catch(_){return[]}}
   function clampTime(i,t){
     const d=duration();let min=0,max=d||Math.max(0,t);
     try{
-      for(let p=i-1;p>=0;p--){if(Number.isFinite(Number(words[p]?.time))){min=Number(words[p].time)+0.001;break}}
-      for(let n=i+1;n<words.length;n++){if(Number.isFinite(Number(words[n]?.time))){max=Math.min(max,Number(words[n].time)-0.001);break}}
+      for(let p=i-1;p>=0;p--){if(isTimed(words[p])){min=Number(words[p].time)+0.001;break}}
+      for(let n=i+1;n<words.length;n++){if(isTimed(words[n])){max=Math.min(max,Number(words[n].time)-0.001);break}}
     }catch(_){}
     if(max<min)max=min;
     return Math.max(min,Math.min(max,Number(t)||0));
@@ -57,8 +58,8 @@
   }
   function updateSelected(){
     let w=null;try{w=words?.[selected]}catch(_){}
-    selectedText.textContent=w&&Number.isFinite(Number(w.time))?`מילה: ${w.t} — ${formatTime(w.time)}`:'לא נבחרה מילה';
-    minus.disabled=plus.disabled=!(w&&Number.isFinite(Number(w.time)));
+    selectedText.textContent=isTimed(w)?`מילה: ${w.t} — ${formatTime(w.time)}`:'לא נבחרה מילה';
+    minus.disabled=plus.disabled=!isTimed(w);
   }
 
   function draw(){
@@ -66,7 +67,6 @@
     if(canvas2.width!==Math.round(w*dpr)||canvas2.height!==Math.round(h*dpr)){canvas2.width=Math.round(w*dpr);canvas2.height=Math.round(h*dpr)}
     c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);c.fillStyle='#050d16';c.fillRect(0,0,w,h);
 
-    // Waveform.
     try{
       if(audioBuffer){
         const data=audioBuffer.getChannelData(0),step=Math.max(1,Math.floor(data.length/w));
@@ -89,9 +89,7 @@
         const x=Math.max(0,Math.min(w,(Number(mw.time)/dur)*w));
         c.strokeStyle=i===selected?'#ffd36a':'#ff9f1c';c.lineWidth=i===selected?3:1.5;c.beginPath();c.moveTo(x,5);c.lineTo(x,h-5);c.stroke();
         c.fillStyle=i===selected?'#ffd36a':'#ff9f1c';c.beginPath();c.arc(x,10,i===selected?6:4,0,Math.PI*2);c.fill();
-        if(i===selected){
-          c.font='bold 12px Arial';c.textAlign=x>w-90?'right':x<90?'left':'center';c.fillText(String(mw.t||''),x,h-8);
-        }
+        if(i===selected){c.font='bold 12px Arial';c.textAlign=x>w-90?'right':x<90?'left':'center';c.fillText(String(mw.t||''),x,h-8)}
       }
       const px=Math.max(0,Math.min(w,(Number(audioEl.currentTime||0)/dur)*w));
       c.strokeStyle='#ffffff';c.lineWidth=1;c.beginPath();c.moveTo(px,0);c.lineTo(px,h);c.stroke();
@@ -132,13 +130,12 @@
   function nudge(delta){
     if(selected<0)return;
     try{
-      const w=words[selected];if(!w||!Number.isFinite(Number(w.time)))return;
+      const w=words[selected];if(!isTimed(w))return;
       w.time=clampTime(selected,Number(w.time)+delta);audioEl.currentTime=w.time;current=selected;renderWords();updateSyncPreview();draw();setStatus(`זמן "${w.t}" עודכן ל־${formatTime(w.time)}`);
     }catch(_){}
   }
   minus?.addEventListener('click',()=>nudge(-0.05));plus?.addEventListener('click',()=>nudge(0.05));
 
-  // Refresh after all operations that can change timings or audio.
   ['syncBtn','syncBtn2','undoBtn','resetBtn','startBtn','startBtn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>setTimeout(draw,0)));
   document.addEventListener('keydown',e=>{if(e.code==='Space')setTimeout(draw,0)});
   document.getElementById('loadProject')?.addEventListener('change',()=>setTimeout(()=>{try{drawWave()}catch(_){}draw()},800));
@@ -148,7 +145,6 @@
   audioEl.addEventListener('timeupdate',draw);
   audioEl.addEventListener('loadedmetadata',()=>setTimeout(draw,0));
 
-  // The original studio waveform can become blank if it was drawn while hidden/zero-width; redraw it now and after load.
   if(mainWave){setTimeout(()=>{try{if(audioBuffer)drawWave()}catch(_){}},100)}
 
   window.__hksDrawSyncWave=draw;
