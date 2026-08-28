@@ -1,4 +1,4 @@
-// Hebrew Karaoke Studio Web v1.22 — reliable local FFmpeg loader
+// Hebrew Karaoke Studio Web v1.23 — iPhone-safe classic FFmpeg worker
 (function(){
  const $=s=>document.querySelector(s);
  const style=document.createElement('style');style.textContent=`.formatBox{border:1px solid #2b4358;border-radius:12px;padding:10px;margin:10px 0;background:#07111c}.formatTitle{font-weight:900;font-size:16px;margin-bottom:8px}.settingsRow{display:grid;grid-template-columns:1fr 1fr;gap:8px}.settingsRow select{margin-bottom:4px}.renderLog{margin-top:8px;padding:8px;border:1px solid #263747;border-radius:8px;white-space:pre-wrap;max-height:150px;overflow:auto;font-size:11px;color:#bcd0e2}@media(max-width:600px){.settingsRow{grid-template-columns:1fr}}`;document.head.appendChild(style);
@@ -20,23 +20,21 @@
  exportPreset=function(){return preset($('#mp4Video')?.value||'1080-master',$('#mp4Audio')?.value||'320')};
  window.wmvExportPreset=function(){return preset($('#wmvVideo')?.value||'1080-master',$('#wmvAudio')?.value||'320')};
 
- // Important: use the FFmpeg files bundled inside this project instead of a CDN.
- // This avoids the Safari/iPhone stall that occurred while opening WebAssembly from blob/CDN URLs.
  loadFFmpeg=async function(){
    if(ffmpegInstance)return ffmpegInstance;
    const timeout=(p,ms,msg)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error(msg)),ms))]);
    try{
-     setExportState('שלב 1 — טוען ספריית FFmpeg מקומית…',1);
+     setExportState('שלב 1 — טוען מנוע FFmpeg לאייפון…',1);
      const mods=await timeout(Promise.all([
-       import('./vendor/ffmpeg/ffmpeg/index.js'),
+       import('./vendor/ffmpeg/ffmpeg/ios.js'),
        import('./vendor/ffmpeg/util/index.js')
-     ]),20000,'לא הצלחתי לפתוח את ספריית FFmpeg המקומית');
+     ]),20000,'לא הצלחתי לפתוח את מנוע FFmpeg המקומי');
      const {FFmpeg}=mods[0],{fetchFile}=mods[1];
      const f=new FFmpeg();
      f.on('log',({message})=>log(message));
      f.on('progress',({progress})=>{const p=Math.max(0,Math.min(1,Number(progress)||0));if(renderStage==='mp4')oldState('מרנדר MP4…',20+p*55);else if(renderStage==='wmv')oldState('יוצר WMV…',78+p*20)});
      const base=new URL('./vendor/ffmpeg/core/',location.href).href;
-     setExportState('שלב 1 — מפעיל WebAssembly מקומי…',5);
+     setExportState('שלב 1 — מפעיל WebAssembly במצב Safari…',5);
      await timeout(f.load({coreURL:base+'ffmpeg-core.js',wasmURL:base+'ffmpeg-core.wasm'}),90000,'מנוע FFmpeg המקומי לא נפתח בזמן');
      ffmpegFetchFile=fetchFile;ffmpegInstance=f;
      setExportState('מנוע FFmpeg הופעל בהצלחה',8);
@@ -47,5 +45,5 @@
  const baseRender=renderDual;
  renderDual=async function(){window.__wmvPreset=window.wmvExportPreset();return baseRender()};
  const btn=$('#dualExportBtn');if(btn){btn.textContent='🎬 רנדר MP4 + WMV ביחד';btn.onclick=renderDual}
- const version=document.querySelector('.version');if(version)version.textContent='Web v1.22';
+ const version=document.querySelector('.version');if(version)version.textContent='Web v1.23';
 })();
