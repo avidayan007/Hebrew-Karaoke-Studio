@@ -1,0 +1,43 @@
+name: Renderer Self Test
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'renderer-selftest.html'
+      - '.github/workflows/renderer-selftest.yml'
+  workflow_dispatch:
+jobs:
+  webkit-render-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Playwright WebKit
+        run: |
+          npm init -y
+          npm i playwright@1.55.0
+          npx playwright install --with-deps webkit
+      - name: Serve app
+        run: |
+          python3 -m http.server 8080 >/tmp/server.log 2>&1 &
+          sleep 2
+      - name: Run actual MP4 and WMV render in WebKit
+        run: |
+          node <<'NODE'
+          const { webkit } = require('playwright');
+          (async()=>{
+            const browser=await webkit.launch({headless:true});
+            const page=await browser.newPage();
+            page.on('console',m=>console.log('BROWSER:',m.text()));
+            page.on('pageerror',e=>console.error('PAGEERROR:',e.message));
+            await page.goto('http://127.0.0.1:8080/renderer-selftest.html',{waitUntil:'domcontentloaded'});
+            await page.waitForFunction(()=>window.__RESULT__?.done===true,null,{timeout:180000});
+            const result=await page.evaluate(()=>window.__RESULT__);
+            console.log('RESULT',JSON.stringify(result));
+            await browser.close();
+            if(!result.ok || result.mp4 < 1000 || result.wmv < 1000) process.exit(1);
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
