@@ -1,27 +1,19 @@
-// Hebrew Karaoke Studio Web v1.21 — server renderer bridge
+// Hebrew Karaoke Studio Web v1.22 — renderer probe only
 (function(){
  const $=s=>document.querySelector(s);
- const old=$('#renderLog');
- if(old) old.textContent='בודק מנוע רינדור בשרת…';
+ const log=$('#renderLog');
  async function probe(){
    try{
      const r=await fetch('/api/render',{cache:'no-store'});
      if(!r.ok) throw new Error('HTTP '+r.status);
      const j=await r.json();
-     if(old) old.textContent='שרת הרינדור מחובר: '+(j.service||'OK')+' — '+(j.version||'');
      window.__serverRenderer=j;
+     if(log) log.textContent+='\nבדיקת שרת: '+(j.service||'API')+' זמין. הרינדור עצמו מופעל מקומית במכשיר.';
    }catch(e){
-     if(old) old.textContent='שרת הרינדור עדיין לא מחובר. הרינדור המקומי לא יופעל אוטומטית כדי לא לתקוע את Safari.';
      window.__serverRenderer=null;
+     if(log) log.textContent+='\nבדיקת שרת לא זמינה — ממשיך עם מנוע FFmpeg המקומי.';
    }
  }
  probe();
- const b=$('#dualExportBtn');
- if(b){
-   b.onclick=async()=>{
-     await probe();
-     if(!window.__serverRenderer){ setExportState('שרת הרינדור עדיין לא זמין — לא מפעילה את מנוע Safari התקול.',0); return; }
-     setExportState('שרת הרינדור מחובר. מנוע FFmpeg השרתִי נמצא בהשלמת התקנה.',5);
-   };
- }
+ // Do not override #dualExportBtn here. patch-v20 owns the working render action.
 })();
