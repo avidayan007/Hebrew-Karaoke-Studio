@@ -1,5 +1,5 @@
-const CACHE='hks-v27';
-const ASSETS=['./','index.html','app.js?v=27','patch-v17.js?v=27','patch-v18.js?v=27','patch-v20.js?v=27','patch-v21.js?v=27','patch-v25.js?v=27','patch-v27.js?v=27','manifest.webmanifest'];
+const CACHE='hks-v28';
+const ASSETS=['./','index.html','app.js?v=28','patch-v17.js?v=28','patch-v18.js?v=28','patch-v20.js?v=28','patch-v21.js?v=28','patch-v25.js?v=28','patch-v27.js?v=28','patch-v28.js?v=28','manifest.webmanifest'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).catch(()=>{}))});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()]))});
 self.addEventListener('fetch',e=>{if(new URL(e.request.url).pathname.startsWith('/api/'))return;if(e.request.mode==='navigate'){e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{let copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return r}).catch(()=>caches.match(e.request).then(r=>r||caches.match('./'))));return}e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{if(e.request.method==='GET'){let copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return r}).catch(()=>caches.match(e.request)))});
