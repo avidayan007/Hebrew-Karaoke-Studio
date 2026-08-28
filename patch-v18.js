@@ -64,12 +64,10 @@
   async function makeOverlayBlob(lines,p){
     const cv=document.createElement('canvas'); cv.width=p.width; cv.height=p.height;
     const c=cv.getContext('2d'); c.clearRect(0,0,p.width,p.height); c.lineJoin='round';
-    // branding
     const bs=Math.round(p.height*.029), top=Math.round(p.height*.026), pad=Math.round(p.width*.026);
     c.font=`900 ${bs}px Arial, sans-serif`; c.lineWidth=Math.max(2,Math.round(bs*.12)); c.strokeStyle='#fff'; c.fillStyle='#2584e6'; c.textBaseline='top';
     c.textAlign='left'; c.direction='ltr'; c.strokeText('Avi Dayan The Show',pad,top); c.fillText('Avi Dayan The Show',pad,top);
     c.textAlign='right'; c.direction='rtl'; c.strokeText('אבי דיין ההופעה',p.width-pad,top); c.fillText('אבי דיין ההופעה',p.width-pad,top);
-    // four lyric lines
     const gap=Math.round(p.height*.105), base=Math.round(p.height*.075), maxW=p.width*.90;
     const firstY=p.height/2-((Math.max(lines.length,1)-1)*gap)/2;
     c.textAlign='center';c.textBaseline='middle';c.direction='rtl';
@@ -111,7 +109,6 @@
     let ffmpeg=null, files=[];
     try{
       ffmpeg=await loadFFmpeg(); const p=exportPreset();
-      // iPhone memory protection: 4K wasm rendering is too memory-heavy. Render 1080p Master instead.
       if(/iPhone|iPad|iPod/i.test(navigator.userAgent)&&p.width>1920){p.width=1920;p.height=1080;p.videoK='12M';setExportState('באייפון 4K הותאם ל‑1080p Master כדי למנוע תקיעה',9);}
       const inp=await prepareV18(ffmpeg,duration,p);files=[inp.audioName,inp.bgName,...inp.overlayNames,'output.mp4','output.wmv'].filter(Boolean);
       const overlayInputs=[];inp.overlayNames.forEach(n=>overlayInputs.push('-loop','1','-framerate',String(p.fps),'-i',n));
@@ -129,4 +126,41 @@
   };
 
   const b=$('#dualExportBtn');if(b)b.onclick=renderDual;
+})();
+
+// v1.9: removable uploaded files
+(function(){
+  const $ = s => document.querySelector(s);
+  const version = document.querySelector('.version');
+  if(version) version.textContent='Web v1.9';
+
+  const style=document.createElement('style');
+  style.textContent=`.fileRemoveRow{display:flex;gap:8px;align-items:center;margin:-4px 0 10px}.fileRemoveBtn{min-height:38px;padding:7px 12px;border-radius:10px;border:1px solid #9d4650;background:linear-gradient(#c83a45,#711b22);color:#fff;font-weight:800;font-size:14px;display:none}.fileRemoveBtn.show{display:inline-block}.fileName{font-size:12px;color:#b9c7d5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}`;
+  document.head.appendChild(style);
+
+  function addRemove(inputId, label, onRemove){
+    const input=$(inputId); if(!input)return;
+    const row=document.createElement('div');row.className='fileRemoveRow';
+    const name=document.createElement('div');name.className='fileName';name.textContent='לא נבחר קובץ';
+    const btn=document.createElement('button');btn.type='button';btn.className='fileRemoveBtn';btn.textContent='✕ הסר קובץ';
+    row.appendChild(name);row.appendChild(btn);input.insertAdjacentElement('afterend',row);
+    input.addEventListener('change',()=>{const f=input.files&&input.files[0];name.textContent=f?`${label}: ${f.name}`:'לא נבחר קובץ';btn.classList.toggle('show',!!f);});
+    btn.onclick=()=>{onRemove();input.value='';name.textContent='לא נבחר קובץ';btn.classList.remove('show');setStatus(`${label} הוסר — אפשר לבחור קובץ חדש`);};
+  }
+
+  addRemove('#audioFile','קובץ המוזיקה',()=>{
+    audio.pause();
+    try{if(audio.src&&audio.src.startsWith('blob:'))URL.revokeObjectURL(audio.src)}catch(e){}
+    audio.removeAttribute('src');audio.load();audioInputFile=null;audioBuffer=null;
+    const w=$('#wave');if(w){const c=w.getContext('2d');c.clearRect(0,0,w.width,w.height);}
+    const clock=$('#clock');if(clock)clock.textContent='00:00.000 / 00:00.000';
+  });
+
+  addRemove('#imageFile','תמונת הרקע',()=>{
+    imageInputFile=null;const im=$('#bgImg');if(im){try{if(im.src&&im.src.startsWith('blob:'))URL.revokeObjectURL(im.src)}catch(e){}im.removeAttribute('src');im.hidden=true;}
+  });
+
+  addRemove('#videoFile','וידאו הרקע',()=>{
+    videoInputFile=null;const v=$('#bgVideo');if(v){v.pause();try{if(v.src&&v.src.startsWith('blob:'))URL.revokeObjectURL(v.src)}catch(e){}v.removeAttribute('src');v.load();v.hidden=true;}
+  });
 })();
