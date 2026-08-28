@@ -1,4 +1,4 @@
-// Hebrew Karaoke Studio Web v1.22 — renderer probe only
+// Hebrew Karaoke Studio Web v1.24 — renderer probe + WMV PCM patch loader
 (function(){
  const $=s=>document.querySelector(s);
  const log=$('#renderLog');
@@ -15,5 +15,5 @@
    }
  }
  probe();
- // Do not override #dualExportBtn here. patch-v20 owns the working render action.
+ import('./patch-v24.js?v=24').catch(e=>{if(log)log.textContent+='\nשגיאה בטעינת הגדרות WMV PCM: '+(e?.message||e);});
 })();
