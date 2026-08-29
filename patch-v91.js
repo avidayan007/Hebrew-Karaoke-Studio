@@ -67,3 +67,5 @@
   const v=document.querySelector('.version');if(v)v.textContent='Web v1.91';
   console.log('[v91] Studio toolbar split into two rows');
 })();
+
+import('./patch-v92.js?v=92').catch(e=>{console.error('[v92]',e);try{setStatus('שגיאה בטעינת עדכון v1.92')}catch(_){}});
