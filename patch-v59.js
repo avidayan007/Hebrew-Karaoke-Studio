@@ -23,10 +23,18 @@
     }
   }
   function showLyrics(){
+    lyricsPreview.style.setProperty('display','block','important');
     lyricsPreview.style.setProperty('visibility','visible','important');
     lyricsPreview.style.setProperty('opacity','1','important');
     lyricsPreview.setAttribute('aria-hidden','false');
-    const slide=document.getElementById('hksSongTitleSlide');if(slide)slide.hidden=true;
+    const slide=document.getElementById('hksSongTitleSlide');
+    if(slide){
+      slide.hidden=true;
+      slide.classList.remove('hksTitleEnter','hksTitleExit');
+      slide.style.setProperty('display','none','important');
+      slide.style.setProperty('visibility','hidden','important');
+      slide.style.setProperty('opacity','0','important');
+    }
   }
   function enforce(){syncSessionStarted?showLyrics():showTitleOnly()}
   function setSession(v){syncSessionStarted=!!v;enforce()}
@@ -52,7 +60,6 @@
   document.addEventListener('keydown',e=>{if(e.code==='Space'&&document.activeElement?.tagName!=='TEXTAREA'&&document.activeElement?.tagName!=='INPUT')setTimeout(afterSync,0)});
   document.getElementById('resetBtn')?.addEventListener('click',()=>setTimeout(()=>setSession(false),0));
 
-  // A restored project that already contains timings is immediately playable as a finished result.
   document.getElementById('loadProject')?.addEventListener('change',()=>setTimeout(()=>{
     syncSessionStarted=hasSavedTiming();
     enforce();
@@ -69,5 +76,6 @@
   window.__hksSetSyncSessionStarted=setSession;
   window.__hksBeginFreshSyncSession=beginFreshSyncSession;
   window.__hksRefreshIntroVisibility=enforce;
+  window.__hksForceLyricsVisible59=showLyrics;
   enforce();
 })();
