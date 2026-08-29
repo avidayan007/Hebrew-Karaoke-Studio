@@ -1,6 +1,6 @@
 {
-  "name": "Hebrew Karaoke Studio",
-  "short_name": "Karaoke Studio",
+  "name": "Avi Karaoke",
+  "short_name": "Avi Karaoke",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#050d16",
