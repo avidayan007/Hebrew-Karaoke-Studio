@@ -1,4 +1,4 @@
-// Hebrew Karaoke Studio Web v1.43 — smooth flowing song-title intro
+// Hebrew Karaoke Studio Web v1.43 — smooth title intro without re-showing hidden title
 (function(){
   const slide=document.getElementById('hksSongTitleSlide');
   const frame=document.getElementById('hksSongTitleFrame');
@@ -8,16 +8,8 @@
   const style=document.createElement('style');
   style.textContent=`
     #hksSongTitleSlide{overflow:hidden}
-    #hksSongTitleFrame{
-      will-change:transform,opacity,filter;
-      transform-origin:center center;
-    }
-    #hksSongTitleSlide.hksTitleEnter #hksSongTitleFrame{
-      animation:hksTitleFlowIn 1.75s cubic-bezier(.16,.85,.28,1) both;
-    }
-    #hksSongTitleSlide.hksTitleExit #hksSongTitleFrame{
-      animation:hksTitleFlowOut .58s ease-in both;
-    }
+    #hksSongTitleFrame{will-change:transform,opacity,filter;transform-origin:center center}
+    #hksSongTitleSlide.hksTitleEnter #hksSongTitleFrame{animation:hksTitleFlowIn 1.75s cubic-bezier(.16,.85,.28,1) both}
     @keyframes hksTitleFlowIn{
       0%{opacity:0;transform:translateX(38%) scale(.94);filter:blur(8px)}
       42%{opacity:.72;filter:blur(2px)}
@@ -25,40 +17,27 @@
       84%{transform:translateX(-1.2%) scale(1.01)}
       100%{opacity:1;transform:translateX(0) scale(1);filter:blur(0)}
     }
-    @keyframes hksTitleFlowOut{
-      0%{opacity:1;transform:translateX(0) scale(1);filter:blur(0)}
-      100%{opacity:0;transform:translateX(-8%) scale(.985);filter:blur(3px)}
-    }
-    @media (prefers-reduced-motion:reduce){
-      #hksSongTitleSlide.hksTitleEnter #hksSongTitleFrame,
-      #hksSongTitleSlide.hksTitleExit #hksSongTitleFrame{animation-duration:.18s!important}
-    }
+    @media (prefers-reduced-motion:reduce){#hksSongTitleSlide.hksTitleEnter #hksSongTitleFrame{animation-duration:.18s!important}}
   `;
   document.head.appendChild(style);
 
-  let wasVisible=!slide.hidden;
-  let exitTimer=null;
   function restartEnter(){
-    clearTimeout(exitTimer);
-    slide.classList.remove('hksTitleExit','hksTitleEnter');
+    if(slide.hidden)return;
+    slide.classList.remove('hksTitleEnter','hksTitleExit');
     void frame.offsetWidth;
     slide.classList.add('hksTitleEnter');
   }
-  function animateExitThenHide(){
-    clearTimeout(exitTimer);
-    slide.hidden=false;
-    slide.classList.remove('hksTitleEnter','hksTitleExit');
-    void frame.offsetWidth;
-    slide.classList.add('hksTitleExit');
-    exitTimer=setTimeout(()=>{slide.hidden=true;slide.classList.remove('hksTitleExit')},580);
-  }
 
-  if(wasVisible)restartEnter();
+  if(!slide.hidden)restartEnter();
 
+  // Important: when another part of the app hides the title, do NOT unhide it for an exit animation.
+  // That old behavior caused the title to echo and created feedback with Play/Sync.
+  let wasVisible=!slide.hidden;
   const obs=new MutationObserver(()=>{
     const visible=!slide.hidden;
-    if(visible&&!wasVisible){restartEnter();wasVisible=true;return}
-    if(!visible&&wasVisible){wasVisible=false;animateExitThenHide()}
+    if(visible&&!wasVisible)restartEnter();
+    if(!visible)slide.classList.remove('hksTitleEnter','hksTitleExit');
+    wasVisible=visible;
   });
   obs.observe(slide,{attributes:true,attributeFilter:['hidden']});
 
@@ -83,6 +62,4 @@
       window.buildAss=wrapped;
     }
   }catch(e){console.warn('[v43 title animation export]',e)}
-
-  const v=document.querySelector('.version');if(v)v.textContent='Web v1.43';
 })();
