@@ -7,16 +7,31 @@
   const isTimed=w=>!!w&&w.time!=null&&Number.isFinite(Number(w.time));
   function titleOnly(){
     lyricsEl.innerHTML='';
+    lyricsEl.style.removeProperty('display');
     lyricsEl.style.setProperty('visibility','hidden','important');
     lyricsEl.style.setProperty('opacity','0','important');
     const slide=document.getElementById('hksSongTitleSlide');
     const title=(window.__hksSongTitleState?.text||'').trim();
-    if(slide&&title){slide.hidden=false;slide.style.setProperty('display','flex','important');slide.style.setProperty('visibility','visible','important');slide.style.setProperty('opacity','1','important')}
+    if(slide&&title){
+      slide.hidden=false;
+      slide.classList.remove('hksTitleExit');
+      slide.style.setProperty('display','flex','important');
+      slide.style.setProperty('visibility','visible','important');
+      slide.style.setProperty('opacity','1','important');
+    }
   }
   function showLyrics(){
+    lyricsEl.style.setProperty('display','block','important');
     lyricsEl.style.setProperty('visibility','visible','important');
     lyricsEl.style.setProperty('opacity','1','important');
-    const slide=document.getElementById('hksSongTitleSlide');if(slide)slide.hidden=true;
+    const slide=document.getElementById('hksSongTitleSlide');
+    if(slide){
+      slide.hidden=true;
+      slide.classList.remove('hksTitleEnter','hksTitleExit');
+      slide.style.setProperty('display','none','important');
+      slide.style.setProperty('visibility','hidden','important');
+      slide.style.setProperty('opacity','0','important');
+    }
   }
   function firstTimedIndex(){try{return Array.isArray(words)?words.findIndex(isTimed):-1}catch(_){return-1}}
   function activeTimedIndex(t){
@@ -43,18 +58,21 @@
     showLyrics();
   }
 
-  // Final result renderer: no word coloring, only four-line slide changes.
   window.updateLivePreview=renderFourLineSlides;
   window.__hksRenderLiveByTiming=renderFourLineSlides;
   audioEl.addEventListener('timeupdate',renderFourLineSlides);
   audioEl.addEventListener('seeked',renderFourLineSlides);
   audioEl.addEventListener('play',()=>setTimeout(renderFourLineSlides,0));
+  audioEl.addEventListener('pause',()=>setTimeout(renderFourLineSlides,0));
   document.getElementById('playBtn')?.addEventListener('click',()=>setTimeout(renderFourLineSlides,0));
   document.getElementById('loadProject')?.addEventListener('change',()=>setTimeout(()=>{
     try{if(Array.isArray(words)&&words.some(isTimed))window.__hksSetSyncSessionStarted?.(true)}catch(_){}
     renderFourLineSlides();
   },1000));
-  ['syncBtn','syncBtn2','undoBtn','resetBtn'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>setTimeout(renderFourLineSlides,0)));
+  ['syncBtn','syncBtn2','undoBtn','resetBtn'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>setTimeout(()=>{
+    try{if(Array.isArray(words)&&words.some(isTimed))window.__hksSetSyncSessionStarted?.(true)}catch(_){}
+    renderFourLineSlides();
+  },0)));
 
   renderFourLineSlides();
   const v=document.querySelector('.version');if(v)v.textContent='Web v1.63';
