@@ -1,25 +1,154 @@
 (()=>{
- const $=id=>document.getElementById(id),yt={A:null,B:null};let target='A',results=[],autoMixTimer=null;let bc=null;try{bc=new BroadcastChannel('afd-dj-video')}catch(e){}
- const fr=()=>document.getElementById('console'),cdoc=()=>{try{return fr()?.contentDocument}catch(e){return null}},key=()=>{try{return localStorage.getItem('afdYT')||''}catch(e){return ''}},esc=s=>String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
- const url=(id,o={})=>'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(id)+'?autoplay=1&playsinline=1&rel=0&enablejsapi=1&origin='+encodeURIComponent(location.origin)+(o.controls===false?'&controls=0':'&controls=1')+(o.mute?'&mute=1':'');
- function cmd(deck,fn,args=[],master=false){const f=cdoc()?.getElementById((master?'ytMaster':'ytDeck')+deck);try{f?.contentWindow?.postMessage(JSON.stringify({event:'command',func:fn,args}),'*')}catch(e){}}
- function style(){if($('afdYTWorkStyle'))return;let s=document.createElement('style');s.id='afdYTWorkStyle';s.textContent=`.afdYTWorkspace{display:none;margin-top:7px;height:285px;border:1px solid #5c4a78;border-radius:6px;background:linear-gradient(#11161d,#05070a);padding:7px;gap:6px;grid-template-rows:auto auto 1fr;color:#fff;direction:ltr}.afdYTWorkspace.on{display:grid}.afdYTBar{display:grid;grid-template-columns:1fr 64px 1fr 64px 1fr 54px 30px;gap:5px}.afdYTBar input{min-width:0;height:32px;border:1px solid #46505c;border-radius:4px;background:#05070a;color:#fff;padding:0 8px}.afdYTBar button{height:32px;border:1px solid #7356a0;border-radius:4px;background:linear-gradient(#65428f,#28173d);color:#fff;font-size:9px;font-weight:900}.afdYTBar .bb{border-color:#287fae;background:linear-gradient(#2879a3,#123b56)}.afdYTBar .x{border-color:#555;background:#15191e}.afdYTHint{font-size:9px;color:#9da8b4}.afdYTResults{min-height:0;overflow:auto;border:1px solid #303741;background:#05070a}.afdYTResult{display:grid;grid-template-columns:86px minmax(0,1fr) 48px 48px;gap:6px;align-items:center;padding:5px;border-bottom:1px solid #20262d;cursor:pointer}.afdYTResult img{width:86px;height:48px;object-fit:cover}.afdYTResult b{font-size:9px}.afdYTResult small{display:block;color:#8d98a5;font-size:8px}.afdYTResult button{height:28px;border:1px solid #7356a0;background:#382153;color:#fff;border-radius:4px;font-weight:900}.afdYTResult .b{border-color:#287fae;background:#123f5a}@media(max-width:800px){.afdYTWorkspace{height:250px}.afdYTBar{grid-template-columns:1fr 52px 1fr 52px}.afdYTResult{grid-template-columns:68px minmax(0,1fr) 42px 42px}.afdYTResult img{width:68px;height:40px}}`;document.head.appendChild(s)}
- function workspace(){style();let dock=document.querySelector('.dock');if(!dock)return null;let p=$('afdYTWorkspace');if(p)return p;p=document.createElement('div');p.id='afdYTWorkspace';p.className='afdYTWorkspace';p.innerHTML='<div class="afdYTBar"><input id="afdYTA" placeholder="חיפוש YouTube ל‑A"><button id="afdGoA">חפש A</button><input id="afdYTB" placeholder="חיפוש YouTube ל‑B"><button id="afdGoB" class="bb">חפש B</button><input id="afdYTUrl" placeholder="הדבק URL של YouTube"><button id="afdUrlBtn">טען URL</button><button id="afdYTClose" class="x">×</button></div><div id="afdYTHint" class="afdYTHint">לחיצה כפולה טוענת ליעד שנבחר • אחרי טעינה המשטח נסגר אוטומטית</div><div id="afdYTResults" class="afdYTResults"><div style="padding:18px;text-align:center;color:#8994a0">חפש שיר ל‑A או ל‑B, או הדבק קישור YouTube.</div></div>';dock.appendChild(p);$('afdGoA').onclick=()=>search('A');$('afdGoB').onclick=()=>search('B');$('afdYTA').onkeydown=e=>{if(e.key==='Enter')search('A')};$('afdYTB').onkeydown=e=>{if(e.key==='Enter')search('B')};$('afdYTClose').onclick=close;$('afdUrlBtn').onclick=loadUrl;$('afdYTUrl').onkeydown=e=>{if(e.key==='Enter')loadUrl()};return p}
- function open(){let p=workspace();if(!p)return false;p.classList.add('on');let q=($('ytSearch')?.value||'').trim();if(q){$('afdYTA').value=q;target='A';setTimeout(()=>search('A'),60)}else{setTimeout(()=>$('afdYTA')?.focus(),0)}p.scrollIntoView({behavior:'smooth',block:'nearest'});return true}function close(){workspace()?.classList.remove('on')}
- window.AFDOpenYT=open;document.addEventListener('afd-open-youtube-workspace',open);
- async function search(d){target=d;let q=$('afdYT'+d)?.value.trim(),k=key(),box=$('afdYTResults');if(!q){box.innerHTML='<div style="padding:18px;text-align:center">כתוב שם של שיר או אמן.</div>';return}$('afdYTHint').textContent='מחפש עבור Deck '+d+'...';if(!k){box.innerHTML='<div style="padding:18px;text-align:center;color:#ffd36a"><b>חסר YouTube API Key</b><br><br>פתח SETTINGS, הדבק את המפתח בשדה YouTube API Key ולחץ שמור.</div>';$('afdYTHint').textContent='YouTube API Key לא נמצא במכשיר הזה';return}box.innerHTML='<div style="padding:18px;text-align:center">מחפש ב‑YouTube...</div>';try{let r=await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=18&safeSearch=moderate&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(k)),j=await r.json();if(!r.ok)throw Error(j?.error?.message||('YouTube API HTTP '+r.status));results=(j.items||[]).map(x=>({id:x.id.videoId,title:x.snippet.title,channel:x.snippet.channelTitle,thumb:x.snippet.thumbnails?.medium?.url||''}));render();$('afdYTHint').textContent=results.length?'נמצאו '+results.length+' תוצאות • בחר A או B':'לא נמצאו תוצאות'}catch(e){box.innerHTML='<div style="padding:18px;text-align:center;color:#ff9f9f"><b>שגיאת YouTube API</b><br><br>'+esc(e.message)+'</div>';$('afdYTHint').textContent='החיפוש נכשל — ראה את ההודעה למטה'}}
- function render(){let b=$('afdYTResults');b.innerHTML=results.map((x,i)=>'<div class="afdYTResult" data-i="'+i+'"><img src="'+esc(x.thumb)+'"><div><b>'+esc(x.title)+'</b><small>'+esc(x.channel)+'</small></div><button data-d="A">A</button><button data-d="B" class="b">B</button></div>').join('')||'<div style="padding:18px;text-align:center">לא נמצאו תוצאות</div>';b.querySelectorAll('.afdYTResult').forEach(r=>{let x=results[+r.dataset.i];r.ondblclick=e=>{if(!e.target.closest('button'))load(target,x)};r.querySelectorAll('[data-d]').forEach(bt=>bt.onclick=e=>{e.stopPropagation();load(bt.dataset.d,x)})})}
- function videoId(v){v=(v||'').trim();try{let u=new URL(v);if(u.hostname.includes('youtu.be'))return u.pathname.slice(1).split('/')[0];if(u.hostname.includes('youtube.com')){if(u.searchParams.get('v'))return u.searchParams.get('v');let m=u.pathname.match(/\/(?:embed|shorts|live)\/([^/?]+)/);if(m)return m[1]}}catch(e){}return /^[\w-]{11}$/.test(v)?v:''}
- function loadUrl(){let id=videoId($('afdYTUrl')?.value),d=target;if(!id){$('afdYTHint').textContent='הקישור לא זוהה כקישור YouTube.';return}load(d,{id,title:'YouTube URL',channel:'YouTube',thumb:'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg'})}
- function deckScreen(d,k){return d.getElementById('vid'+k)?.parentElement}
- function frameStyle(f,z=20){f.style.position='absolute';f.style.inset='0';f.style.width='100%';f.style.height='100%';f.style.border='0';f.style.background='#000';f.style.zIndex=String(z)}
- function addDeck(d,k,x){let s=deckScreen(d,k);if(!s)return;s.style.position='relative';d.getElementById('ytDeck'+k)?.remove();let f=d.createElement('iframe');f.id='ytDeck'+k;frameStyle(f,20);f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';f.setAttribute('playsinline','');f.src=url(x.id);s.appendChild(f);let v=d.getElementById('vid'+k),post=d.getElementById('post'+k),t=d.getElementById('title'+k);if(v)v.style.display='none';if(post)post.style.display='none';if(t)t.textContent=x.title}
- function addMaster(d,k,x){let s=d.querySelector('.masterScreen');if(!s)return;s.style.position='relative';d.getElementById('ytMaster'+k)?.remove();let f=d.createElement('iframe');f.id='ytMaster'+k;frameStyle(f,15);f.style.pointerEvents='none';f.allow='autoplay; encrypted-media; picture-in-picture';f.src=url(x.id,{controls:false,mute:true});s.appendChild(f);let logo=d.getElementById('masterLogo');if(logo)logo.style.display='none'}
- function load(k,x){let d=cdoc();if(!d)return;yt[k]={...x,playing:true};addDeck(d,k,x);addMaster(d,k,x);close();setTimeout(()=>{mix();cmd(k,'playVideo');cmd(k,'playVideo',[],true)},700);try{bc?.postMessage({type:'youtube-load',deck:k,videoId:x.id,title:x.title})}catch(e){}}
- function mix(){let d=cdoc();if(!d)return,x=+(d.getElementById('cross')?.value||50)/100,gA=+(d.getElementById('gainA')?.value||100)/100,gB=+(d.getElementById('gainB')?.value||100)/100;cmd('A','setVolume',[Math.round(Math.cos(x*Math.PI/2)*100*gA)]);cmd('B','setVolume',[Math.round(Math.sin(x*Math.PI/2)*100*gB)]);let a=d.getElementById('ytMasterA'),b=d.getElementById('ytMasterB');if(a)a.style.opacity=1-x;if(b)b.style.opacity=x;try{bc?.postMessage({type:'mix',value:x})}catch(e){}}
- function autoMix(){let d=cdoc(),c=d?.getElementById('cross'),bt=d?.getElementById('afdAutoMixBtn');if(!c||autoMixTimer)return;let st=+c.value,to=st<50?100:0,t0=performance.now(),dur=3500;bt?.classList.add('on');let go=n=>{let p=Math.min(1,(n-t0)/dur),e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;c.value=st+(to-st)*e;mix();c.dispatchEvent(new Event('input',{bubbles:true}));if(p<1)autoMixTimer=requestAnimationFrame(go);else{autoMixTimer=null;bt?.classList.remove('on')}};autoMixTimer=requestAnimationFrame(go)}
- function bind(){let d=cdoc();if(!d)return;['cross','gainA','gainB'].forEach(i=>d.getElementById(i)?.addEventListener('input',mix));if(!d.getElementById('afdAutoMixBtn')){let c=d.getElementById('cross'),b=d.createElement('button');if(c){b.id='afdAutoMixBtn';b.textContent='AUTO MIX ↔';b.style.cssText='width:100%;height:34px;margin-top:6px;border:1px solid #7c5fb2;border-radius:5px;background:linear-gradient(#6f4aa2,#2d1949 60%,#12091d);color:#fff;font-size:9px;font-weight:900';b.onclick=autoMix;c.parentElement?.parentElement?.appendChild(b)}}}
- function hook(){workspace();let b=$('ytBtn');if(b)b.onclick=e=>{e.preventDefault();e.stopPropagation();open()}}
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{workspace();hook();bind()});else{workspace();hook();bind()}
- fr()?.addEventListener('load',()=>setTimeout(bind,100));setTimeout(hook,300);
+  const byId=id=>document.getElementById(id);
+  const frame=()=>byId('console');
+  const cdoc=()=>{try{return frame()?.contentDocument||null}catch(e){return null}};
+  const esc=s=>String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  let yt={A:null,B:null};
+  let bc=null;try{bc=new BroadcastChannel('afd-dj-video')}catch(e){}
+
+  function apiKey(){
+    const live=(byId('ytKey')?.value||'').trim();
+    if(live)return live;
+    try{return (localStorage.getItem('afdYT')||'').trim()}catch(e){return ''}
+  }
+
+  function ensureUI(){
+    const btn=byId('ytBtn');
+    if(!btn)return null;
+    const card=btn.closest('.card');
+    if(!card)return null;
+    const online=byId('online');
+    if(online)online.style.overflow='auto';
+    const view=card.closest('.view');
+    if(view)view.style.overflow='auto';
+    let box=byId('afdYTInlineResults');
+    if(!box){
+      box=document.createElement('div');
+      box.id='afdYTInlineResults';
+      box.style.cssText='margin-top:4px;min-height:42px;max-height:210px;overflow:auto;border:1px solid #313944;border-radius:5px;background:#05070a;padding:5px;font-size:9px;color:#dce3eb';
+      box.innerHTML='<div style="padding:10px;text-align:center;color:#8994a0">כתוב שם שיר ולחץ חיפוש YouTube</div>';
+      card.appendChild(box);
+    }
+    return box;
+  }
+
+  function ytUrl(id,opts={}){
+    const p=new URLSearchParams({autoplay:'1',playsinline:'1',rel:'0',enablejsapi:'1',origin:location.origin});
+    if(opts.controls===false)p.set('controls','0');
+    if(opts.mute)p.set('mute','1');
+    return 'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(id)+'?'+p.toString();
+  }
+
+  function command(deck,func,args=[],master=false){
+    const d=cdoc(); if(!d)return;
+    const f=d.getElementById((master?'ytMaster':'ytDeck')+deck);
+    try{f?.contentWindow?.postMessage(JSON.stringify({event:'command',func,args}),'*')}catch(e){}
+  }
+
+  function styleFrame(f,z){
+    Object.assign(f.style,{position:'absolute',inset:'0',width:'100%',height:'100%',border:'0',background:'#000',zIndex:String(z)});
+  }
+
+  function addDeck(deck,item){
+    const d=cdoc(); if(!d)return false;
+    const video=d.getElementById('vid'+deck);
+    const screen=video?.parentElement;
+    if(!screen)return false;
+    screen.style.position='relative';
+    d.getElementById('ytDeck'+deck)?.remove();
+    const f=d.createElement('iframe');
+    f.id='ytDeck'+deck; styleFrame(f,20);
+    f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
+    f.setAttribute('playsinline','');
+    f.src=ytUrl(item.id);
+    screen.appendChild(f);
+    if(video)video.style.display='none';
+    const post=d.getElementById('post'+deck); if(post)post.style.display='none';
+    const title=d.getElementById('title'+deck); if(title)title.textContent=item.title;
+    return true;
+  }
+
+  function addMaster(deck,item){
+    const d=cdoc(); if(!d)return;
+    const screen=d.querySelector('.masterScreen'); if(!screen)return;
+    screen.style.position='relative';
+    d.getElementById('ytMaster'+deck)?.remove();
+    const f=d.createElement('iframe');
+    f.id='ytMaster'+deck; styleFrame(f,15); f.style.pointerEvents='none';
+    f.allow='autoplay; encrypted-media; picture-in-picture';
+    f.src=ytUrl(item.id,{controls:false,mute:true});
+    screen.appendChild(f);
+    const logo=d.getElementById('masterLogo'); if(logo)logo.style.display='none';
+  }
+
+  function mix(){
+    const d=cdoc(); if(!d)return;
+    const x=+(d.getElementById('cross')?.value||50)/100;
+    const gA=+(d.getElementById('gainA')?.value||100)/100;
+    const gB=+(d.getElementById('gainB')?.value||100)/100;
+    command('A','setVolume',[Math.round(Math.cos(x*Math.PI/2)*100*gA)]);
+    command('B','setVolume',[Math.round(Math.sin(x*Math.PI/2)*100*gB)]);
+    const a=d.getElementById('ytMasterA'),b=d.getElementById('ytMasterB');
+    if(a)a.style.opacity=String(1-x); if(b)b.style.opacity=String(x);
+    try{bc?.postMessage({type:'mix',value:x})}catch(e){}
+  }
+
+  function load(deck,item){
+    if(!addDeck(deck,item)){
+      const box=ensureUI(); if(box)box.innerHTML='<div style="padding:10px;color:#ff9f9f">Deck '+deck+' עדיין לא מוכן.</div>';
+      return;
+    }
+    yt[deck]={...item,playing:true};
+    addMaster(deck,item);
+    setTimeout(()=>{mix();command(deck,'playVideo');command(deck,'playVideo',[],true)},700);
+    const status=byId('status'); if(status)status.textContent='YouTube loaded → Deck '+deck;
+    try{bc?.postMessage({type:'youtube-load',deck,videoId:item.id,title:item.title})}catch(e){}
+  }
+
+  function render(items){
+    const box=ensureUI(); if(!box)return;
+    if(!items.length){box.innerHTML='<div style="padding:10px;text-align:center">לא נמצאו תוצאות.</div>';return}
+    box.innerHTML=items.map((x,i)=>'<div data-i="'+i+'" style="display:grid;grid-template-columns:64px minmax(0,1fr) 38px 38px;gap:5px;align-items:center;padding:5px;border-bottom:1px solid #20262d"><img src="'+esc(x.thumb)+'" style="width:64px;height:38px;object-fit:cover;border-radius:3px"><div style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(x.title)+'</b><span style="color:#8d98a5">'+esc(x.channel)+'</span></div><button data-d="A" style="height:28px;border:1px solid #7356a0;background:#382153;color:#fff;border-radius:4px;font-weight:900">A</button><button data-d="B" style="height:28px;border:1px solid #287fae;background:#123f5a;color:#fff;border-radius:4px;font-weight:900">B</button></div>').join('');
+    box.querySelectorAll('[data-i]').forEach(row=>{
+      const item=items[+row.dataset.i];
+      row.querySelectorAll('[data-d]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();load(b.dataset.d,item)});
+    });
+  }
+
+  async function searchNow(){
+    const box=ensureUI(); if(!box)return;
+    const q=(byId('ytSearch')?.value||'').trim();
+    if(!q){box.innerHTML='<div style="padding:10px;text-align:center;color:#ffd36a">כתוב שם של שיר או אמן.</div>';return}
+    const key=apiKey();
+    if(!key){box.innerHTML='<div style="padding:10px;text-align:center;color:#ffd36a"><b>חסר YouTube API Key</b><br>פתח SETTINGS, הדבק את המפתח ולחץ שמור.</div>';return}
+    box.innerHTML='<div style="padding:12px;text-align:center">מחפש ב‑YouTube...</div>';
+    const status=byId('status'); if(status)status.textContent='YouTube search...';
+    try{
+      const u='https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=15&safeSearch=moderate&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(key);
+      const r=await fetch(u,{cache:'no-store'});
+      const j=await r.json();
+      if(!r.ok)throw new Error(j?.error?.message||('YouTube API HTTP '+r.status));
+      const items=(j.items||[]).map(x=>({id:x.id?.videoId||'',title:x.snippet?.title||'YouTube',channel:x.snippet?.channelTitle||'',thumb:x.snippet?.thumbnails?.medium?.url||x.snippet?.thumbnails?.default?.url||''})).filter(x=>x.id);
+      render(items);
+      if(status)status.textContent='YouTube: '+items.length+' results';
+    }catch(e){
+      box.innerHTML='<div style="padding:10px;text-align:center;color:#ff9f9f"><b>שגיאת YouTube API</b><br>'+esc(e.message)+'</div>';
+      if(status)status.textContent='YouTube search error';
+    }
+  }
+
+  function bind(){
+    ensureUI();
+    const btn=byId('ytBtn');
+    if(btn)btn.onclick=e=>{e.preventDefault();e.stopPropagation();searchNow()};
+    const input=byId('ytSearch');
+    if(input)input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();searchNow()}};
+    const d=cdoc();
+    ['cross','gainA','gainB'].forEach(id=>d?.getElementById(id)?.addEventListener('input',mix));
+  }
+
+  window.AFDOpenYT=searchNow;
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
+  frame()?.addEventListener('load',()=>setTimeout(bind,100));
+  setTimeout(bind,400);
 })();
