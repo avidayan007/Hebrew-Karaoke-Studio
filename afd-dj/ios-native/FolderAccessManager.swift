@@ -6,6 +6,8 @@ final class FolderAccessManager: NSObject, UIDocumentPickerDelegate {
     weak var presenter: UIViewController?
     weak var webView: WKWebView?
     private let bookmarkKey = "AFDDJSelectedFolderBookmark"
+    private var folderURL: URL?
+    private var itemsByID: [String: URL] = [:]
 
     init(presenter: UIViewController, webView: WKWebView) {
         self.presenter = presenter
@@ -22,6 +24,7 @@ final class FolderAccessManager: NSObject, UIDocumentPickerDelegate {
 
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         guard let url = urls.first else { return }
+        folderURL = url
         saveBookmark(url)
         sendFolderToWeb(url)
     }
@@ -32,37 +35,64 @@ final class FolderAccessManager: NSObject, UIDocumentPickerDelegate {
             var stale = false
             let url = try URL(resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
             if stale { saveBookmark(url) }
+            folderURL = url
             sendFolderToWeb(url)
-        } catch {
-            UserDefaults.standard.removeObject(forKey: bookmarkKey)
+        } catch { UserDefaults.standard.removeObject(forKey: bookmarkKey) }
+    }
+
+    func loadMedia(id: String, deck: String) {
+        guard let source = itemsByID[id], let folder = folderURL else { sendError("הקובץ לא נמצא בתיקייה"); return }
+        guard folder.startAccessingSecurityScopedResource() else { sendError("אין הרשאה לתיקייה"); return }
+        defer { folder.stopAccessingSecurityScopedResource() }
+        var coordinationError: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: source, options: [], error: &coordinationError) { coordinatedURL in
+            do {
+                let ext = coordinatedURL.pathExtension
+                let safeDeck = deck == "B" ? "B" : "A"
+                let dst = FileManager.default.temporaryDirectory.appendingPathComponent("AFDDJ-\(safeDeck).\(ext)")
+                try? FileManager.default.removeItem(at: dst)
+                try FileManager.default.copyItem(at: coordinatedURL, to: dst)
+                DispatchQueue.main.async { [weak self] in self?.sendLoaded(deck: safeDeck, fileURL: dst, name: coordinatedURL.lastPathComponent) }
+            } catch { DispatchQueue.main.async { [weak self] in self?.sendError("לא ניתן להכין את הקובץ לנגן") } }
         }
+        if coordinationError != nil { sendError("שגיאה בקריאת הקובץ מ‑Files / iCloud") }
     }
 
     private func saveBookmark(_ url: URL) {
         guard url.startAccessingSecurityScopedResource() else { return }
         defer { url.stopAccessingSecurityScopedResource() }
-        do {
-            let data = try url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
-            UserDefaults.standard.set(data, forKey: bookmarkKey)
-        } catch { }
+        do { UserDefaults.standard.set(try url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil), forKey: bookmarkKey) } catch { }
     }
 
     private func sendFolderToWeb(_ folder: URL) {
-        guard folder.startAccessingSecurityScopedResource() else { return }
+        guard folder.startAccessingSecurityScopedResource() else { sendError("אין הרשאה לתיקייה"); return }
         defer { folder.stopAccessingSecurityScopedResource() }
-        let fm = FileManager.default
-        let keys: [URLResourceKey] = [.isRegularFileKey, .nameKey, .fileSizeKey, .contentModificationDateKey]
+        itemsByID.removeAll()
+        let keys: [URLResourceKey] = [.isRegularFileKey,.fileSizeKey,.contentModificationDateKey]
         let exts = Set(["mp3","wav","m4a","aac","flac","ogg","mp4","mov","m4v","webm"])
         var items: [[String: Any]] = []
-        if let en = fm.enumerator(at: folder, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) {
-            for case let u as URL in en {
-                guard exts.contains(u.pathExtension.lowercased()) else { continue }
-                let v = try? u.resourceValues(forKeys: Set(keys))
-                guard v?.isRegularFile == true else { continue }
-                items.append(["name": u.lastPathComponent, "path": u.path, "size": v?.fileSize ?? 0])
+        var coordinationError: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: folder, options: [], error: &coordinationError) { coordinatedFolder in
+            if let en = FileManager.default.enumerator(at: coordinatedFolder, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) {
+                for case let u as URL in en {
+                    guard exts.contains(u.pathExtension.lowercased()) else { continue }
+                    let v = try? u.resourceValues(forKeys: Set(keys)); guard v?.isRegularFile == true else { continue }
+                    let id = UUID().uuidString; itemsByID[id] = u
+                    items.append(["id":id,"name":u.lastPathComponent,"size":v?.fileSize ?? 0])
+                }
             }
         }
-        guard let data = try? JSONSerialization.data(withJSONObject: items), let json = String(data: data, encoding: .utf8) else { return }
-        webView?.evaluateJavaScript("window.AFDNativeFolderFiles && window.AFDNativeFolderFiles(\(json));")
+        guard coordinationError == nil, let data = try? JSONSerialization.data(withJSONObject: items), let json = String(data:data,encoding:.utf8) else { sendError("לא ניתן לקרוא את התיקייה"); return }
+        DispatchQueue.main.async { [weak self] in self?.webView?.evaluateJavaScript("window.AFDNativeFolderFiles && window.AFDNativeFolderFiles(\(json));") }
+    }
+
+    private func sendLoaded(deck: String, fileURL: URL, name: String) {
+        let payload:[String:String] = ["deck":deck,"url":fileURL.absoluteString,"name":name]
+        guard let d=try? JSONSerialization.data(withJSONObject:payload),let j=String(data:d,encoding:.utf8) else{return}
+        webView?.evaluateJavaScript("window.AFDNativeMediaReady && window.AFDNativeMediaReady(\(j));")
+    }
+    private func sendError(_ text:String) {
+        guard let d=try? JSONSerialization.data(withJSONObject:["message":text]),let j=String(data:d,encoding:.utf8) else{return}
+        DispatchQueue.main.async { [weak self] in self?.webView?.evaluateJavaScript("window.AFDNativeError && window.AFDNativeError(\(j));") }
     }
 }
