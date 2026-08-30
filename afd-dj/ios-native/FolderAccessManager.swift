@@ -5,6 +5,7 @@ import WebKit
 final class FolderAccessManager: NSObject, UIDocumentPickerDelegate {
     weak var presenter: UIViewController?
     weak var webView: WKWebView?
+    var onMediaPrepared: ((String, URL) -> Void)?
     private let bookmarkKey = "AFDDJSelectedFolderBookmark"
     private var folderURL: URL?
     private var itemsByID: [String: URL] = [:]
@@ -52,7 +53,10 @@ final class FolderAccessManager: NSObject, UIDocumentPickerDelegate {
                 let dst = FileManager.default.temporaryDirectory.appendingPathComponent("AFDDJ-\(safeDeck).\(ext)")
                 try? FileManager.default.removeItem(at: dst)
                 try FileManager.default.copyItem(at: coordinatedURL, to: dst)
-                DispatchQueue.main.async { [weak self] in self?.sendLoaded(deck: safeDeck, fileURL: dst, name: coordinatedURL.lastPathComponent) }
+                DispatchQueue.main.async { [weak self] in
+                    self?.onMediaPrepared?(safeDeck, dst)
+                    self?.sendLoaded(deck: safeDeck, fileURL: dst, name: coordinatedURL.lastPathComponent)
+                }
             } catch { DispatchQueue.main.async { [weak self] in self?.sendError("לא ניתן להכין את הקובץ לנגן") } }
         }
         if coordinationError != nil { sendError("שגיאה בקריאת הקובץ מ‑Files / iCloud") }
