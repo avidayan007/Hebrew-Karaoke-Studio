@@ -7,8 +7,13 @@
    const x=Math.max(0,Math.min(1,+(d.getElementById('cross')?.value||50)/100));
    const ga=Math.max(0,Math.min(1,+(d.getElementById('gainA')?.value||100)/100));
    const gb=Math.max(0,Math.min(1,+(d.getElementById('gainB')?.value||100)/100));
-   const a=Math.round(100*ga*Math.cos(x*Math.PI/2)),b=Math.round(100*gb*Math.sin(x*Math.PI/2));
+   const va=ga*Math.cos(x*Math.PI/2),vb=gb*Math.sin(x*Math.PI/2);
+   const a=Math.round(100*va),b=Math.round(100*vb);
    ytCmd(d,'A','setVolume',[a]);ytCmd(d,'B','setVolume',[b]);
+   const ma=d.getElementById('vidA'),mb=d.getElementById('vidB');
+   if(ma){ma.volume=Math.max(0,Math.min(1,va));ma.muted=false}
+   if(mb){mb.volume=Math.max(0,Math.min(1,vb));mb.muted=false}
+   d.querySelectorAll('.masterScreen video').forEach(v=>v.muted=true);
    const ra=d.getElementById('afdVolReadA'),rb=d.getElementById('afdVolReadB');if(ra)ra.textContent=Math.round(ga*100)+'%';if(rb)rb.textContent=Math.round(gb*100)+'%';
  }
  function wireTransport(d){
@@ -41,10 +46,11 @@
    ['A','B'].forEach((deck,i)=>{
      const panel=d.getElementById('vid'+deck)?.closest('.panel'),side=panel?.querySelector('.eq'),target=channels[i]?.querySelector('.chKnobs');
      if(side&&target){['Bass','Mid','Treble'].forEach(k=>{const el=d.getElementById('afdEq'+k+deck)?.closest('.afdEqSlider');if(el)target.appendChild(el)});side.innerHTML=''}
-     const g=d.getElementById('gain'+deck),f=g?.closest('.fader');if(g&&f){g.min=0;g.max=100;g.step=1;if(!Number.isFinite(+g.value)||+g.value<0||+g.value>100)g.value=100;let r=d.getElementById('afdVolRead'+deck);if(!r){r=d.createElement('div');r.id='afdVolRead'+deck;r.className='afdVolRead';f.appendChild(r)}g.addEventListener('input',()=>mix(d),{passive:true})}
+     const g=d.getElementById('gain'+deck),f=g?.closest('.fader');if(g&&f){g.min=0;g.max=100;g.step=1;if(!Number.isFinite(+g.value)||+g.value<0||+g.value>100)g.value=100;let r=d.getElementById('afdVolRead'+deck);if(!r){r=d.createElement('div');r.id='afdVolRead'+deck;r.className='afdVolRead';f.appendChild(r)}g.addEventListener('input',()=>mix(d),{passive:true});g.addEventListener('change',()=>mix(d),{passive:true})}
+     const m=d.getElementById('vid'+deck);if(m&&!m.dataset.afdVol61){m.dataset.afdVol61='1';m.addEventListener('loadedmetadata',()=>mix(d),{passive:true});m.addEventListener('play',()=>mix(d),{passive:true})}
    });
    if(mixer&&vu&&channels.length>=2){mixer.insertBefore(channels[1],vu);mixer.insertBefore(channels[0],vu.nextSibling)}
-   const cross=d.getElementById('cross');if(cross&&!cross.dataset.afdMix53){cross.dataset.afdMix53='1';cross.addEventListener('input',()=>mix(d),{passive:true})}
+   const cross=d.getElementById('cross');if(cross&&!cross.dataset.afdMix53){cross.dataset.afdMix53='1';cross.addEventListener('input',()=>mix(d),{passive:true});cross.addEventListener('change',()=>mix(d),{passive:true})}
    wireTransport(d);mix(d);
  }
  function run(){const d=doc();if(d?.head)style(d)}
