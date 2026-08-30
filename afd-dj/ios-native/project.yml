@@ -1,0 +1,28 @@
+name: AFDDJ
+options:
+  bundleIdPrefix: com.afddj
+  deploymentTarget:
+    iOS: '16.0'
+settings:
+  base:
+    PRODUCT_NAME: AFD DJ
+    TARGETED_DEVICE_FAMILY: '2'
+    SUPPORTS_MACCATALYST: NO
+    SWIFT_VERSION: '5.0'
+targets:
+  AFDDJ:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        excludes:
+          - README.md
+          - project.yml
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.afddj.mobile
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UIRequiresFullScreen: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
