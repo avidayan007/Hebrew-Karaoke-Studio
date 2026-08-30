@@ -1,0 +1,5 @@
+(()=>{
+ const fr=()=>document.getElementById('console'),D=()=>{try{return fr()?.contentDocument}catch(e){return null}};
+ function bind(){const d=D();if(!d)return;['A','B'].forEach(k=>{const m=d.getElementById('vid'+k),p=d.getElementById('pitch'+k);if(m&&!m.dataset.afdStable108){m.dataset.afdStable108='1';m.preload='metadata';m.setAttribute('playsinline','');m.addEventListener('playing',()=>{m.dataset.afdPlaying108='1'},{passive:true});m.addEventListener('pause',()=>{delete m.dataset.afdPlaying108},{passive:true})}if(p&&!p.dataset.afdStable108){p.dataset.afdStable108='1';let raf=0,want=+p.value||0;const apply=()=>{raf=0;const v=Math.max(-10,Math.min(10,want)),rate=1+v/100;if(m&&Math.abs(m.playbackRate-rate)>.001)m.playbackRate=rate};p.addEventListener('input',()=>{want=+p.value||0;if(!raf)raf=d.defaultView.requestAnimationFrame(apply)},{passive:true})}})}
+ fr()?.addEventListener('load',()=>setTimeout(bind,100));setTimeout(bind,300);setInterval(bind,2000);
+})();
