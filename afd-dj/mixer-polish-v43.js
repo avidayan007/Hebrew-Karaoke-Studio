@@ -7,7 +7,8 @@
    const x=Math.max(0,Math.min(1,+(d.getElementById('cross')?.value||50)/100));
    const ga=Math.max(0,Math.min(1,+(d.getElementById('gainA')?.value||100)/100));
    const gb=Math.max(0,Math.min(1,+(d.getElementById('gainB')?.value||100)/100));
-   const va=ga*Math.cos(x*Math.PI/2),vb=gb*Math.sin(x*Math.PI/2);
+   // AFD layout: LEFT = Deck B, RIGHT = Deck A.
+   const vb=gb*Math.cos(x*Math.PI/2),va=ga*Math.sin(x*Math.PI/2);
    const a=Math.round(100*va),b=Math.round(100*vb);
    ytCmd(d,'A','setVolume',[a]);ytCmd(d,'B','setVolume',[b]);
    const ma=d.getElementById('vidA'),mb=d.getElementById('vidB');
