@@ -1,0 +1,29 @@
+name: Build AFD DJ Windows
+on:
+  workflow_dispatch:
+  push:
+    branches: [afd-dj-mobile]
+    paths:
+      - 'afd-dj/windows/**'
+      - '.github/workflows/afd-dj-windows.yml'
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: afd-dj/windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: afd-dj/windows/package.json
+      - run: npm install
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AFD-DJ-Windows
+          path: |
+            afd-dj/windows/dist/*.exe
+          if-no-files-found: error
