@@ -1,0 +1,5 @@
+const {app,BrowserWindow,shell,session}=require('electron');
+const path=require('path');
+app.commandLine.appendSwitch('autoplay-policy','no-user-gesture-required');
+function create(){const w=new BrowserWindow({width:1600,height:950,minWidth:1100,minHeight:700,backgroundColor:'#05070b',title:'AFD DJ',autoHideMenuBar:true,webPreferences:{contextIsolation:true,nodeIntegration:false,webSecurity:true}});w.maximize();w.loadURL('https://afd-dj.vercel.app/workstation.html?v=159');w.webContents.setWindowOpenHandler(({url})=>{if(url.startsWith('about:blank'))return{action:'allow',overrideBrowserWindowOptions:{width:1280,height:720,autoHideMenuBar:true,backgroundColor:'#000'}};shell.openExternal(url);return{action:'deny'}})}
+app.whenReady().then(()=>{session.defaultSession.setPermissionRequestHandler((wc,p,cb)=>cb(['media','fullscreen','window-management','display-capture'].includes(p)));create();app.on('activate',()=>{if(BrowserWindow.getAllWindows().length===0)create()})});app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()});
