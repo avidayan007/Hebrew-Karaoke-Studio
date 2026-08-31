@@ -5,8 +5,7 @@
   "main":"main.js",
   "author":"AFD DJ",
   "license":"UNLICENSED",
-  "scripts":{"start":"electron .","dist":"electron-builder --win portable nsis"},
-  "dependencies":{"electron":"^37.2.6"},
-  "devDependencies":{"electron-builder":"^26.0.12"},
+  "scripts":{"start":"electron .","dist":"electron-builder --win portable nsis --publish never"},
+  "devDependencies":{"electron":"^37.2.6","electron-builder":"^26.0.12"},
   "build":{"appId":"com.afd.dj","productName":"AFD DJ","artifactName":"AFD-DJ-Windows-${version}-${arch}.${ext}","win":{"target":["portable","nsis"]},"nsis":{"oneClick":false,"allowToChangeInstallationDirectory":true,"createDesktopShortcut":true,"createStartMenuShortcut":true}}
 }
