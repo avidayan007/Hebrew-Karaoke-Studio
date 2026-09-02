@@ -12,7 +12,7 @@ function media(k){return D()?.getElementById('vid'+k)||null}
 function meta(k){return window.AFDLocalDeckMeta?.[k]||null}
 function online(k){const d=D();return!!(d?.getElementById('ytDeck'+k)||d?.getElementById('afdSP105Deck'+k))}
 function identity(k){const m=meta(k),v=media(k);return String(m?.path||m?.key||m?.name||v?.currentSrc||v?.src||'')}
-function bpmEl(k){return D()?.getElementById('bpm'+k)||null}
+function bpmEl(k){const d=D();if(!d)return null;let e=d.getElementById('bpm'+k);if(!e){e=d.querySelector('.deck'+k+' .bpm strong');if(e)e.id='bpm'+k}return e||null}
 function rawBase(k){return Number(info[k]?.bpm||bpmEl(k)?.dataset?.afdDetectedBpm||bpmEl(k)?.dataset?.afdBaseBpm||0)||0}
 function gridBase(k){return locks[k]?.normalizedBase||rawBase(k)}
 function effective(k){const b=gridBase(k),v=media(k);return b>20&&v?b*(Number(v.playbackRate)||1):b}
