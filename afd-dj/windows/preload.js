@@ -15,5 +15,7 @@ contextBridge.exposeInMainWorld('afdDesktopMedia',{
     const key=String(meta?.key||''),p=paths.get(key);if(!p)return Promise.reject(new Error('Local file path is not available. Re-select the folder/file.'));
     return ipcRenderer.invoke('afd-media-prepare',{path:p,name:String(meta?.name||''),kind:String(meta?.kind||''),force:!!meta?.force});
   },
-  preparePath:meta=>ipcRenderer.invoke('afd-media-prepare',{path:String(meta?.path||''),name:String(meta?.name||''),kind:String(meta?.kind||''),force:!!meta?.force})
+  preparePath:meta=>ipcRenderer.invoke('afd-media-prepare',{path:String(meta?.path||''),name:String(meta?.name||''),kind:String(meta?.kind||''),force:!!meta?.force}),
+  savePlaylist:payload=>ipcRenderer.invoke('afd-playlist-save',payload),
+  readPlaylist:filePath=>ipcRenderer.invoke('afd-playlist-read',String(filePath||''))
 });
