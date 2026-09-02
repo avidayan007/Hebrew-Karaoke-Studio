@@ -1,12 +1,12 @@
 {
   "name":"afd-dj-windows",
-  "version":"1.3.9",
+  "version":"1.4.0",
   "description":"AFD DJ Windows Desktop",
-  "main":"main-v181.js",
+  "main":"main-v182.js",
   "author":"AFD DJ",
   "license":"UNLICENSED",
   "scripts":{"start":"electron .","dist":"electron-builder --win nsis --publish never"},
-  "dependencies":{"ffmpeg-static":"^5.2.0","@soundtouchjs/audio-worklet":"^0.2.1"},
+  "dependencies":{"ffmpeg-static":"^5.2.0","signalsmith-stretch":"^1.3.2"},
   "devDependencies":{"electron":"^37.2.6","electron-builder":"^26.0.12"},
   "build":{
     "appId":"com.afd.dj",
