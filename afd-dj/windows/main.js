@@ -14,6 +14,8 @@ const RUNTIME_FIX_JS=fs.readFileSync(path.join(__dirname,'runtime-v168.js'),'utf
 const RUNTIME_PERSIST_JS=fs.readFileSync(path.join(__dirname,'runtime-v169.js'),'utf8');
 const RUNTIME_LIBRARY_JS=fs.readFileSync(path.join(__dirname,'runtime-v170.js'),'utf8');
 const RUNTIME_LIBRARY_FIX_JS=fs.readFileSync(path.join(__dirname,'runtime-v171.js'),'utf8');
+const RUNTIME_TEXT_SCROLL_JS=fs.readFileSync(path.join(__dirname,'runtime-v172.js'),'utf8');
+const RUNTIME_KEY_JS=fs.readFileSync(path.join(__dirname,'runtime-v173.js'),'utf8');
 
 function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
 
@@ -69,7 +71,9 @@ function create(){
       await w.webContents.executeJavaScript(RUNTIME_FIX_JS,true);
       await w.webContents.executeJavaScript(RUNTIME_PERSIST_JS,true);
       await w.webContents.executeJavaScript(RUNTIME_LIBRARY_JS,true);
-      return await w.webContents.executeJavaScript(RUNTIME_LIBRARY_FIX_JS,true);
+      await w.webContents.executeJavaScript(RUNTIME_LIBRARY_FIX_JS,true);
+      await w.webContents.executeJavaScript(RUNTIME_TEXT_SCROLL_JS,true);
+      return await w.webContents.executeJavaScript(RUNTIME_KEY_JS,true);
     }catch(err){
       console.error('AFD runtime inject failed',err);
       return {ok:false,error:String(err)};
@@ -236,7 +240,7 @@ function create(){
     setTimeout(()=>enterFullScreen(),180);
   });
 
-  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=171');
+  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=174');
 
   w.webContents.setWindowOpenHandler(({url})=>{
     if(url.startsWith('spotify:')){
@@ -267,6 +271,7 @@ function create(){
 
 app.whenReady().then(async()=>{
   await session.defaultSession.clearCache().catch(()=>{});
+  await session.defaultSession.clearStorageData({storages:['serviceworkers','cachestorage']}).catch(()=>{});
   session.defaultSession.setPermissionRequestHandler((wc,p,cb)=>cb(['media','fullscreen','window-management','display-capture'].includes(p)));
   create();
   app.on('activate',()=>{if(BrowserWindow.getAllWindows().length===0)create();});
