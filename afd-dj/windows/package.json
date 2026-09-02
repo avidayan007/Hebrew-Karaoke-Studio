@@ -1,16 +1,18 @@
 {
   "name":"afd-dj-windows",
-  "version":"1.3.0",
+  "version":"1.3.1",
   "description":"AFD DJ Windows Desktop",
   "main":"main.js",
   "author":"AFD DJ",
   "license":"UNLICENSED",
   "scripts":{"start":"electron .","dist":"electron-builder --win nsis --publish never"},
+  "dependencies":{"ffmpeg-static":"^5.2.0"},
   "devDependencies":{"electron":"^37.2.6","electron-builder":"^26.0.12"},
   "build":{
     "appId":"com.afd.dj",
     "productName":"AFD DJ",
     "artifactName":"AFD-DJ-Windows-Setup-${version}-${arch}.${ext}",
+    "asarUnpack":["node_modules/ffmpeg-static/**"],
     "win":{"target":["nsis"]},
     "nsis":{
       "oneClick":false,
