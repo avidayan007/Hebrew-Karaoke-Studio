@@ -32,17 +32,21 @@ jobs:
           node --check runtime-v187.js
           node --check runtime-v188.js
           node --check runtime-v189.js
+          node --check runtime-v190.js
+          node --check runtime-v191.js
           node --check ../spotify-playback-v84.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
           node --check ../inline-youtube-core-v48.js
           node --check ../layout-mix-final-v138.js
       - run: npm install
-      - name: Verify Signalsmith Stretch
+      - name: Verify audio engines
         shell: pwsh
         run: |
           if (!(Test-Path 'node_modules/signalsmith-stretch/SignalsmithStretch.js')) { throw 'Signalsmith Stretch runtime missing' }
           if (!(Test-Path 'node_modules/ffmpeg-static/ffmpeg.exe')) { throw 'FFmpeg binary missing' }
+          if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
+          node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
       - uses: actions/upload-artifact@v4
         with:
