@@ -4,7 +4,7 @@ on:
   push:
     branches: [afd-dj-mobile]
     paths:
-      - 'afd-dj/windows/**'
+      - 'afd-dj/**'
       - '.github/workflows/afd-dj-windows.yml'
 jobs:
   build:
@@ -19,6 +19,18 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: afd-dj/windows/package.json
+      - name: Check JavaScript syntax
+        shell: pwsh
+        run: |
+          node --check main.js
+          node --check preload.js
+          node --check runtime-v175.js
+          node --check runtime-v176.js
+          node --check runtime-v177.js
+          node --check ../spotify-playback-v84.js
+          node --check ../deck-replace-confirm-v158.js
+          node --check ../inline-youtube.js
+          node --check ../layout-mix-final-v138.js
       - run: npm install
       - run: npm run dist
       - uses: actions/upload-artifact@v4
