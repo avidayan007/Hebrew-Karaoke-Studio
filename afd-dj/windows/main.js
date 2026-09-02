@@ -11,6 +11,7 @@ const MAX_ZOOM=1.40;
 const ZOOM_STEP=0.10;
 const RUNTIME_BASE_JS=fs.readFileSync(path.join(__dirname,'runtime-v167.js'),'utf8');
 const RUNTIME_FIX_JS=fs.readFileSync(path.join(__dirname,'runtime-v168.js'),'utf8');
+const RUNTIME_PERSIST_JS=fs.readFileSync(path.join(__dirname,'runtime-v169.js'),'utf8');
 
 function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
 
@@ -63,7 +64,8 @@ function create(){
   async function injectWindowsRuntime(){
     try{
       await w.webContents.executeJavaScript(RUNTIME_BASE_JS,true);
-      return await w.webContents.executeJavaScript(RUNTIME_FIX_JS,true);
+      await w.webContents.executeJavaScript(RUNTIME_FIX_JS,true);
+      return await w.webContents.executeJavaScript(RUNTIME_PERSIST_JS,true);
     }catch(err){
       console.error('AFD runtime inject failed',err);
       return {ok:false,error:String(err)};
@@ -230,7 +232,7 @@ function create(){
     setTimeout(()=>enterFullScreen(),180);
   });
 
-  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=168');
+  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=169');
 
   w.webContents.setWindowOpenHandler(({url})=>{
     if(url.startsWith('spotify:')){
