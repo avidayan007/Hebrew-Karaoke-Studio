@@ -1,0 +1,139 @@
+(()=>{
+if(window.__afdWin173){window.__afdWin173.refresh();return;}
+const frame=()=>document.getElementById('console');
+let doc=null,W=null,ctx=null,nodes={},graphPromise=null,key={A:0,B:0},mix=.5,fadeOverride=null,busy=false;
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const val=(id,def)=>{const e=doc?.getElementById(id);return e?+e.value:def};
+const status=t=>{const e=document.getElementById('status');if(e)e.textContent=t;console.log('[AFD KEY 173]',t)};
+
+const workletCode=`
+class AfdPitch173 extends AudioWorkletProcessor{
+ static get parameterDescriptors(){return[{name:'ratio',defaultValue:1,minValue:.5,maxValue:2,automationRate:'k-rate'}]}
+ constructor(){super();this.size=16384;this.mask=this.size-1;this.grain=1024;this.base=128;this.write=0;this.phase=0;this.rings=[]}
+ sample(ring,pos){let i0=Math.floor(pos),f=pos-i0;i0&=this.mask;const i1=(i0+1)&this.mask;return ring[i0]*(1-f)+ring[i1]*f}
+ process(inputs,outputs,params){
+  const input=inputs[0],output=outputs[0];if(!output?.length)return true;
+  const chans=output.length;
+  while(this.rings.length<chans)this.rings.push(new Float32Array(this.size));
+  const ratio=Math.max(.5,Math.min(2,params.ratio[0]||1));
+  const bypass=Math.abs(ratio-1)<.0005,step=bypass?0:Math.abs(1-ratio)/this.grain;
+  const n=output[0].length;
+  for(let i=0;i<n;i++){
+   const p1=this.phase,p2=(p1+.5)%1;
+   const w1=Math.sin(Math.PI*p1);const a1=w1*w1;const w2=Math.sin(Math.PI*p2);const a2=w2*w2;
+   const d1=this.base+this.grain*(ratio>1?1-p1:p1),d2=this.base+this.grain*(ratio>1?1-p2:p2);
+   for(let c=0;c<chans;c++){
+    const src=input[c]||input[0],x=src?src[i]||0:0,ring=this.rings[c];ring[this.write]=x;
+    if(bypass)output[c][i]=x;
+    else output[c][i]=this.sample(ring,this.write-d1)*a1+this.sample(ring,this.write-d2)*a2;
+   }
+   this.write=(this.write+1)&this.mask;if(!bypass){this.phase+=step;if(this.phase>=1)this.phase-=1}
+  }
+  return true
+ }
+}
+registerProcessor('afd-pitch-173',AfdPitch173);`;
+
+function killOldCore(d){
+  if(!d?.documentElement)return;
+  d.documentElement.dataset.afd156='1';
+}
+async function addWorklet(){
+  if(!ctx?.audioWorklet)return false;
+  try{
+    const blob=new W.Blob([workletCode],{type:'application/javascript'}),url=W.URL.createObjectURL(blob);
+    try{await ctx.audioWorklet.addModule(url)}finally{W.URL.revokeObjectURL(url)}
+    return true;
+  }catch(e){console.warn('AFD key worklet unavailable',e);return false}
+}
+function factors(k){if(fadeOverride)return fadeOverride[k];return k==='A'?mix:1-mix}
+function apply(){
+  if(!doc)return;
+  const master=clamp(val('afdMasterVolume',100)/100,0,1);
+  ['A','B'].forEach(k=>{
+    const v=doc.getElementById('vid'+k);if(!v)return;
+    const deck=clamp(val('gain'+k,100)/100,0,1),cf=clamp(factors(k),0,1),level=clamp(master*deck*cf,0,1),n=nodes[k];
+    try{v.preservesPitch=true;v.webkitPreservesPitch=true;}catch(e){}
+    v.muted=false;v.defaultMuted=false;
+    if(n){
+      v.volume=1;n.gain.gain.value=level;
+      n.lo.gain.value=val('afdEqBass'+k,0);n.mid.gain.value=val('afdEqMid'+k,0);n.hi.gain.value=val('afdEqTreble'+k,0);
+      if(n.pitch){const ratio=Math.pow(2,key[k]/12);try{n.pitch.parameters.get('ratio').setTargetAtTime(ratio,ctx.currentTime,.015)}catch(e){}}
+    }else v.volume=level;
+  });
+  const r=doc.getElementById('afdMasterRead');if(r)r.textContent=Math.round(master*100)+'%';
+}
+async function ensureGraph(){
+  if(graphPromise)return graphPromise;
+  graphPromise=(async()=>{
+    if(ctx)return;
+    const AC=W.AudioContext||W.webkitAudioContext;if(!AC)return;
+    ctx=new AC();const hasPitch=await addWorklet();
+    for(const k of ['A','B']){
+      const v=doc.getElementById('vid'+k);if(!v)continue;
+      try{
+        const src=ctx.createMediaElementSource(v),lo=ctx.createBiquadFilter(),mid=ctx.createBiquadFilter(),hi=ctx.createBiquadFilter(),gain=ctx.createGain();
+        lo.type='lowshelf';lo.frequency.value=250;mid.type='peaking';mid.frequency.value=1000;mid.Q.value=.8;hi.type='highshelf';hi.frequency.value=4000;
+        let pitch=null;src.connect(lo).connect(mid).connect(hi);
+        if(hasPitch){pitch=new W.AudioWorkletNode(ctx,'afd-pitch-173',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2]});hi.connect(pitch).connect(gain)}else hi.connect(gain);
+        gain.connect(ctx.destination);nodes[k]={v,lo,mid,hi,pitch,gain};
+      }catch(e){console.warn('AFD graph deck '+k,e)}
+    }
+    apply();
+  })();
+  try{await graphPromise}finally{graphPromise=null}
+}
+async function resume(){await ensureGraph();try{await ctx?.resume()}catch(e){}apply()}
+function setTone(deck,n,announce=true){
+  n=clamp(Math.round(Number(n)||0),-12,12);key[deck]=n;
+  const read=doc?.getElementById('afdKeyRead'+deck);if(read)read.textContent=(n>0?'+':'')+n;
+  const keyBtn=[...(doc?.querySelectorAll('.deck'+deck+' .side .mini')||[])].find(b=>b.textContent.trim().startsWith('KEY'));if(keyBtn)keyBtn.textContent='KEY '+(n>0?'+':'')+n;
+  resume().catch(()=>{});apply();
+  if(announce)status('DECK '+deck+' • KEY '+(n>0?'+':'')+n+' semitones');
+}
+function addToneUI(deck){
+  const root=doc?.querySelector('.deck'+deck);if(!root)return;
+  const pitch=root.querySelector('.pitch');if(!pitch)return;
+  let c=doc.getElementById('afdKeyCtl'+deck);
+  if(!c){
+    c=doc.createElement('div');c.id='afdKeyCtl'+deck;c.className='afdKeyCtl173';
+    c.innerHTML='<span>KEY</span><button data-k="-1">−</button><b id="afdKeyRead'+deck+'">0</b><button data-k="1">＋</button>';
+    pitch.appendChild(c);
+    c.querySelectorAll('button').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();if(doc.getElementById('ytDeck'+deck)){status('KEY • YouTube משתמש בנגן חיצוני ולא ניתן לשנות טון');return}setTone(deck,key[deck]+Number(b.dataset.k||0))}));
+    c.querySelector('b')?.addEventListener('click',()=>setTone(deck,0));
+  }
+  const keyBtn=[...root.querySelectorAll('.side .mini')].find(b=>b.textContent.trim()==='KEY'||b.textContent.trim().startsWith('KEY '));
+  if(keyBtn&&!keyBtn.dataset.afdKey173){keyBtn.dataset.afdKey173='1';keyBtn.title='שליטת KEY נמצאת ליד PITCH';keyBtn.addEventListener('click',()=>{c.scrollIntoView({block:'nearest'});c.classList.add('flash');setTimeout(()=>c.classList.remove('flash'),500)})}
+}
+function styleUI(){
+  if(!doc?.head)return;
+  let s=doc.getElementById('afdKeyStyle173');if(!s){s=doc.createElement('style');s.id='afdKeyStyle173';doc.head.appendChild(s)}
+  s.textContent=`.pitch{display:flex!important;flex-direction:column!important;align-items:center!important;gap:3px!important}.afdKeyCtl173{width:70px;display:grid;grid-template-columns:22px 16px 18px 16px;gap:2px;align-items:center;justify-content:center;margin-top:3px;padding:3px;border:1px solid #49525e;border-radius:4px;background:#080b0f;font-size:7px}.afdKeyCtl173 button{height:20px!important;padding:0!important;border:1px solid #626d79;border-radius:3px;background:#222832;color:#fff;font-size:12px!important;font-weight:900}.afdKeyCtl173 b{height:20px;display:grid;place-items:center;border:1px solid #3e4650;border-radius:3px;color:#e0c7ff;cursor:pointer;font-size:8px}.afdKeyCtl173.flash{box-shadow:0 0 12px #a45cff}`;
+}
+function bindMixer(){
+  ['afdMasterVolume','gainA','gainB','afdEqBassA','afdEqMidA','afdEqTrebleA','afdEqBassB','afdEqMidB','afdEqTrebleB'].forEach(id=>{const e=doc.getElementById(id);if(e&&!e.dataset.afd173){e.dataset.afd173='1';['input','change'].forEach(ev=>e.addEventListener(ev,x=>{x.stopImmediatePropagation();resume()},true))}});
+  const cross=doc.getElementById('cross');if(cross&&!cross.dataset.afd173){cross.dataset.afd173='1';['input','change'].forEach(ev=>cross.addEventListener(ev,e=>{e.stopImmediatePropagation();fadeOverride=null;mix=clamp((+cross.value||0)/100,0,1);const vc=doc.getElementById('videoCross');if(vc){vc.value=cross.value;vc.dispatchEvent(new W.Event('input',{bubbles:true}))}apply()},true))}
+  if(!doc.documentElement.dataset.afdKeyResume173){doc.documentElement.dataset.afdKeyResume173='1';doc.addEventListener('pointerdown',resume,{capture:true,passive:true});}
+  ['A','B'].forEach(k=>{const v=doc.getElementById('vid'+k);if(v&&!v.dataset.afdKeyMedia173){v.dataset.afdKeyMedia173='1';v.addEventListener('play',()=>resume());v.addEventListener('loadedmetadata',()=>setTone(k,0,false))}});
+}
+function bindMixButton(){
+  const old=doc.getElementById('afdMixBtn');if(!old||old.dataset.afd173)return;old.dataset.afd173='1';
+  old.addEventListener('click',e=>{
+    e.preventDefault();e.stopImmediatePropagation();if(busy)return;resume();
+    const a=doc.getElementById('vidA'),b=doc.getElementById('vidB');if(!a||!b)return;
+    const pa=!a.paused&&!a.ended,pb=!b.paused&&!b.ended,from=pa&&!pb?'A':pb&&!pa?'B':mix>=.5?'A':'B',to=from==='A'?'B':'A',incoming=to==='A'?a:b;
+    if(!incoming.src)return;incoming.play().catch(()=>{});busy=true;
+    const startA=from==='A'?1:0,startB=from==='B'?1:0,endA=to==='A'?1:0,endB=to==='B'?1:0,startCross=mix*100,endCross=to==='A'?100:0,t0=performance.now(),dur=2000;
+    const tick=t=>{const p=Math.min(1,(t-t0)/dur),q=p*p*(3-2*p);fadeOverride={A:startA+(endA-startA)*q,B:startB+(endB-startB)*q};mix=clamp((startCross+(endCross-startCross)*q)/100,0,1);const c=doc.getElementById('cross');if(c)c.value=String(mix*100);const vc=doc.getElementById('videoCross');if(vc){vc.value=String(mix*100);vc.dispatchEvent(new W.Event('input',{bubbles:true}))}apply();if(p<1)W.requestAnimationFrame(tick);else{fadeOverride=null;mix=to==='A'?1:0;apply();busy=false}};W.requestAnimationFrame(tick);
+  },true);
+}
+function install(){
+  let d;try{d=frame()?.contentDocument}catch(e){return}if(!d?.documentElement)return;
+  if(doc&&doc!==d){try{ctx?.close()}catch(e){}ctx=null;nodes={};graphPromise=null}
+  doc=d;W=d.defaultView;killOldCore(d);styleUI();addToneUI('A');addToneUI('B');bindMixer();bindMixButton();apply();
+}
+function refresh(){install()}
+window.__afdWin173={refresh,setTone};
+frame()?.addEventListener('load',()=>setTimeout(install,80));
+install();setTimeout(install,400);setTimeout(install,1600);setInterval(()=>{install();apply()},1200);
+})();
