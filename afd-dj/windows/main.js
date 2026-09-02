@@ -1,4 +1,4 @@
-const {app,BrowserWindow,shell,session,ipcMain,protocol,net}=require('electron');
+const {app,BrowserWindow,shell,session,ipcMain,protocol,net,dialog}=require('electron');
 const fs=require('fs');
 const path=require('path');
 const crypto=require('crypto');
@@ -19,107 +19,79 @@ const RUNTIME_PERSIST_JS=fs.readFileSync(path.join(__dirname,'runtime-v169.js'),
 const RUNTIME_LIBRARY_JS=fs.readFileSync(path.join(__dirname,'runtime-v170.js'),'utf8');
 const RUNTIME_LIBRARY_FIX_JS=fs.readFileSync(path.join(__dirname,'runtime-v171.js'),'utf8');
 const RUNTIME_TEXT_SCROLL_JS=fs.readFileSync(path.join(__dirname,'runtime-v172.js'),'utf8');
-const RUNTIME_KEY_JS=fs.readFileSync(path.join(__dirname,'runtime-v173.js'),'utf8');
-const RUNTIME_MEDIA_PLAYLIST_JS=fs.readFileSync(path.join(__dirname,'runtime-v174.js'),'utf8');
+const RUNTIME_KEY_JS=fs.readFileSync(path.join(__dirname,'runtime-v176.js'),'utf8');
+const RUNTIME_MEDIA_PLAYLIST_JS=fs.readFileSync(path.join(__dirname,'runtime-v177.js'),'utf8');
+const RUNTIME_EJECT_JS=fs.readFileSync(path.join(__dirname,'runtime-v175.js'),'utf8');
 const MEDIA_URLS=new Map();
 const NATIVE_EXT=new Set(['.mp4','.m4v','.webm','.ogv','.ogg','.mp3','.wav','.wave','.m4a','.aac','.flac','.opus']);
 const VIDEO_EXT=new Set(['.mp4','.m4v','.mov','.webm','.ogv','.avi','.wmv','.asf','.mkv','.mpg','.mpeg','.m2v','.ts','.mts','.m2ts','.vob','.flv','.f4v','.3gp','.3g2','.rm','.rmvb','.divx','.dv']);
 let mediaCacheDir='';
 
 function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
+function trustedSender(event){const u=String(event?.sender?.getURL?.()||'');return u.startsWith('https://afd-dj.vercel.app/')}
+function cleanPlaylistName(s){return String(s||'AFD Playlist').replace(/[<>:"/\\|?*\x00-\x1F]/g,' ').replace(/\s+/g,' ').trim().slice(0,100)||'AFD Playlist'}
+function playlistTracks(raw){return (Array.isArray(raw)?raw:[]).map(x=>({path:String(x?.path||''),name:String(x?.name||''),folder:String(x?.folder||''),kind:String(x?.kind||'music')})).filter(x=>path.isAbsolute(x.path)&&fs.existsSync(x.path))}
+function playlistTitle(filePath,fallback='AFD Playlist'){const b=path.basename(filePath).replace(/\.afdplaylist$/i,'').replace(/\.json$/i,'');return cleanPlaylistName(b||fallback)}
 function ffmpegExecutable(){
   let p=require('ffmpeg-static');
   if(app.isPackaged)p=p.replace('app.asar'+path.sep,'app.asar.unpacked'+path.sep);
   return p;
 }
-function mediaUrl(filePath){
-  const token=crypto.randomBytes(18).toString('hex');MEDIA_URLS.set(token,filePath);return'afdmedia://media/'+token;
-}
-function runFfmpeg(args){
-  return new Promise((resolve,reject)=>{
-    const cp=spawn(ffmpegExecutable(),args,{windowsHide:true});let err='';
-    cp.stderr.on('data',b=>{err+=b.toString();if(err.length>12000)err=err.slice(-12000)});
-    cp.on('error',reject);cp.on('close',code=>code===0?resolve():reject(new Error(err.trim()||('FFmpeg exited '+code))));
-  });
-}
+function mediaUrl(filePath){const token=crypto.randomBytes(18).toString('hex');MEDIA_URLS.set(token,filePath);return'afdmedia://media/'+token}
+function runFfmpeg(args){return new Promise((resolve,reject)=>{const cp=spawn(ffmpegExecutable(),args,{windowsHide:true});let err='';cp.stderr.on('data',b=>{err+=b.toString();if(err.length>12000)err=err.slice(-12000)});cp.on('error',reject);cp.on('close',code=>code===0?resolve():reject(new Error(err.trim()||('FFmpeg exited '+code))))})}
 async function prepareMedia(meta){
   const input=path.resolve(String(meta?.path||''));
   if(!input||!fs.existsSync(input)||!fs.statSync(input).isFile())throw new Error('Media file was not found.');
   const ext=path.extname(input).toLowerCase(),force=!!meta?.force,kind=String(meta?.kind||'')==='video'||VIDEO_EXT.has(ext)?'video':'music';
   if(!force&&NATIVE_EXT.has(ext))return{url:mediaUrl(input),converted:false,kind,name:path.basename(input)};
   const st=fs.statSync(input),sig=crypto.createHash('sha1').update(input+'|'+st.size+'|'+st.mtimeMs+'|'+kind).digest('hex');
-  fs.mkdirSync(mediaCacheDir,{recursive:true});
-  const output=path.join(mediaCacheDir,sig+(kind==='video'?'.mp4':'.wav'));
-  if(!fs.existsSync(output)||fs.statSync(output).size<1024){
-    const args=kind==='video'
-      ?['-hide_banner','-loglevel','error','-y','-i',input,'-map','0:v:0?','-map','0:a:0?','-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart',output]
-      :['-hide_banner','-loglevel','error','-y','-i',input,'-vn','-c:a','pcm_s16le','-ar','48000','-ac','2',output];
-    await runFfmpeg(args);
-  }
+  fs.mkdirSync(mediaCacheDir,{recursive:true});const output=path.join(mediaCacheDir,sig+(kind==='video'?'.mp4':'.wav'));
+  if(!fs.existsSync(output)||fs.statSync(output).size<1024){const args=kind==='video'?['-hide_banner','-loglevel','error','-y','-i',input,'-map','0:v:0?','-map','0:a:0?','-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart',output]:['-hide_banner','-loglevel','error','-y','-i',input,'-vn','-c:a','pcm_s16le','-ar','48000','-ac','2',output];await runFfmpeg(args)}
   return{url:mediaUrl(output),converted:true,kind,name:path.basename(input)};
+}
+async function savePlaylistFile(event,payload){
+  if(!trustedSender(event))throw new Error('Playlist request blocked.');
+  const tracks=playlistTracks(payload?.tracks);if(!tracks.length)throw new Error('Playlist has no available local tracks.');
+  const base=cleanPlaylistName(payload?.defaultName||'AFD Playlist');
+  const result=await dialog.showSaveDialog({title:'Save AFD DJ Playlist',defaultPath:path.join(app.getPath('documents'),base+'.afdplaylist'),buttonLabel:'Save Playlist',filters:[{name:'AFD DJ Playlist',extensions:['afdplaylist']},{name:'JSON',extensions:['json']}],properties:['showOverwriteConfirmation','createDirectory']});
+  if(result.canceled||!result.filePath)return{canceled:true};
+  let filePath=result.filePath;if(!/\.(afdplaylist|json)$/i.test(filePath))filePath+='.afdplaylist';
+  const name=playlistTitle(filePath,base),data={format:'AFD-DJ-PLAYLIST',version:1,name,savedAt:new Date().toISOString(),tracks};
+  fs.writeFileSync(filePath,JSON.stringify(data,null,2),'utf8');return{canceled:false,filePath,name,tracks};
+}
+async function readPlaylistFile(event,filePath){
+  if(!trustedSender(event))throw new Error('Playlist request blocked.');
+  const p=path.resolve(String(filePath||''));if(!path.isAbsolute(p)||!fs.existsSync(p)||!fs.statSync(p).isFile())throw new Error('Playlist file not found.');
+  const data=JSON.parse(fs.readFileSync(p,'utf8'));if(!Array.isArray(data?.tracks))throw new Error('Invalid AFD DJ playlist.');
+  return{name:cleanPlaylistName(data.name||playlistTitle(p)),filePath:p,tracks:data.tracks.map(x=>({path:String(x?.path||''),name:String(x?.name||''),folder:String(x?.folder||''),kind:String(x?.kind||'music')}))};
 }
 
 function create(){
-  const w=new BrowserWindow({
-    width:1600,height:950,minWidth:900,minHeight:600,backgroundColor:'#05070b',title:'AFD DJ',autoHideMenuBar:true,
-    fullscreen:false,fullscreenable:true,show:true,
-    webPreferences:{contextIsolation:true,nodeIntegration:false,webSecurity:true,preload:path.join(__dirname,'preload.js'),autoplayPolicy:'no-user-gesture-required'}
-  });
+  const w=new BrowserWindow({width:1600,height:950,minWidth:900,minHeight:600,backgroundColor:'#05070b',title:'AFD DJ',autoHideMenuBar:true,fullscreen:false,fullscreenable:true,show:true,webPreferences:{contextIsolation:true,nodeIntegration:false,webSecurity:true,preload:path.join(__dirname,'preload.js'),autoplayPolicy:'no-user-gesture-required'}});
   let manualZoom=1,resizeTimer=null,leavingFullScreen=false,spotifyAuthWindow=null;
   function fitForScreen(){const b=w.getContentBounds();return clamp(Math.min(1,b.width/DESIGN_WIDTH,b.height/DESIGN_HEIGHT),MIN_ZOOM,1)}
   function applyZoom(){const factor=clamp(fitForScreen()*manualZoom,MIN_ZOOM,MAX_ZOOM);w.webContents.setZoomFactor(factor);w.webContents.executeJavaScript(`window.dispatchEvent(new Event('resize'));`,true).catch(()=>{})}
   function changeZoom(delta){manualZoom=clamp(Math.round((manualZoom+delta)*100)/100,0.65,1.55);applyZoom()}
   function resetZoom(){manualZoom=1;applyZoom()}
-  async function injectWindowsRuntime(){
-    try{
-      await w.webContents.executeJavaScript(RUNTIME_BASE_JS,true);await w.webContents.executeJavaScript(RUNTIME_FIX_JS,true);
-      await w.webContents.executeJavaScript(RUNTIME_PERSIST_JS,true);await w.webContents.executeJavaScript(RUNTIME_LIBRARY_JS,true);
-      await w.webContents.executeJavaScript(RUNTIME_LIBRARY_FIX_JS,true);await w.webContents.executeJavaScript(RUNTIME_TEXT_SCROLL_JS,true);
-      await w.webContents.executeJavaScript(RUNTIME_KEY_JS,true);return await w.webContents.executeJavaScript(RUNTIME_MEDIA_PLAYLIST_JS,true);
-    }catch(err){console.error('AFD runtime inject failed',err);return{ok:false,error:String(err)}}
-  }
+  async function injectWindowsRuntime(){try{await w.webContents.executeJavaScript(RUNTIME_BASE_JS,true);await w.webContents.executeJavaScript(RUNTIME_FIX_JS,true);await w.webContents.executeJavaScript(RUNTIME_PERSIST_JS,true);await w.webContents.executeJavaScript(RUNTIME_LIBRARY_JS,true);await w.webContents.executeJavaScript(RUNTIME_LIBRARY_FIX_JS,true);await w.webContents.executeJavaScript(RUNTIME_TEXT_SCROLL_JS,true);await w.webContents.executeJavaScript(RUNTIME_KEY_JS,true);await w.webContents.executeJavaScript(RUNTIME_MEDIA_PLAYLIST_JS,true);return await w.webContents.executeJavaScript(RUNTIME_EJECT_JS,true)}catch(err){console.error('AFD runtime inject failed',err);return{ok:false,error:String(err)}}}
   function exitToMaximized(){if(leavingFullScreen)return;leavingFullScreen=true;try{if(w.isFullScreen())w.setFullScreen(false)}catch(e){}setTimeout(()=>{try{w.maximize()}catch(e){}leavingFullScreen=false;applyZoom();injectWindowsRuntime()},180)}
   function enterFullScreen(){try{if(!w.isFullScreen())w.setFullScreen(true)}catch(e){}}
   function isSpotifyAuthorize(url){try{const u=new URL(url);return u.hostname==='accounts.spotify.com'&&u.pathname.startsWith('/authorize')}catch(e){return false}}
   function isSpotifyCallback(url){try{const u=new URL(url),state=u.searchParams.get('state')||'';return u.origin==='https://afd-dj.vercel.app'&&u.pathname.endsWith('/workstation.html')&&state.startsWith('afd168_')}catch(e){return false}}
   function sendSpotifyCallback(url){const js=`window.__afdSpotifyCallback168 ? window.__afdSpotifyCallback168(${JSON.stringify(url)}) : Promise.reject(new Error('Spotify callback handler not ready'))`;w.webContents.executeJavaScript(js,true).catch(err=>{console.error('Spotify callback failed',err);w.webContents.executeJavaScript(`document.getElementById('status')&&(document.getElementById('status').textContent=${JSON.stringify('Spotify ERROR • callback failed')})`,true).catch(()=>{})})}
-  function openSpotifyAuth(authUrl){
-    if(spotifyAuthWindow&&!spotifyAuthWindow.isDestroyed())try{spotifyAuthWindow.close()}catch(e){}
-    const child=new BrowserWindow({parent:w,modal:true,width:540,height:760,minWidth:460,minHeight:620,title:'Spotify Login',autoHideMenuBar:true,backgroundColor:'#121212',show:true,webPreferences:{contextIsolation:true,nodeIntegration:false,webSecurity:true}});spotifyAuthWindow=child;
-    let handled=false;const capture=(event,url)=>{if(handled||!isSpotifyCallback(url))return;handled=true;try{event?.preventDefault?.()}catch(e){}sendSpotifyCallback(url);setTimeout(()=>{try{if(!child.isDestroyed())child.close()}catch(e){}},80)};
-    child.webContents.on('will-navigate',capture);child.webContents.on('will-redirect',capture);child.webContents.on('did-navigate',(_e,url)=>capture(null,url));child.webContents.on('did-navigate-in-page',(_e,url)=>capture(null,url));
-    child.webContents.setWindowOpenHandler(({url})=>{if(url.startsWith('https://accounts.spotify.com/')||url.startsWith('https://www.spotify.com/'))return{action:'allow'};shell.openExternal(url).catch(()=>{});return{action:'deny'}});
-    child.on('closed',()=>{if(spotifyAuthWindow===child)spotifyAuthWindow=null});child.loadURL(authUrl).catch(err=>{console.error('Spotify auth window load failed',err);w.webContents.executeJavaScript(`document.getElementById('status')&&(document.getElementById('status').textContent=${JSON.stringify('Spotify ERROR • login window failed')})`,true).catch(()=>{})});
-  }
+  function openSpotifyAuth(authUrl){if(spotifyAuthWindow&&!spotifyAuthWindow.isDestroyed())try{spotifyAuthWindow.close()}catch(e){}const child=new BrowserWindow({parent:w,modal:true,width:540,height:760,minWidth:460,minHeight:620,title:'Spotify Login',autoHideMenuBar:true,backgroundColor:'#121212',show:true,webPreferences:{contextIsolation:true,nodeIntegration:false,webSecurity:true}});spotifyAuthWindow=child;let handled=false;const capture=(event,url)=>{if(handled||!isSpotifyCallback(url))return;handled=true;try{event?.preventDefault?.()}catch(e){}sendSpotifyCallback(url);setTimeout(()=>{try{if(!child.isDestroyed())child.close()}catch(e){}},80)};child.webContents.on('will-navigate',capture);child.webContents.on('will-redirect',capture);child.webContents.on('did-navigate',(_e,url)=>capture(null,url));child.webContents.on('did-navigate-in-page',(_e,url)=>capture(null,url));child.webContents.setWindowOpenHandler(({url})=>{if(url.startsWith('https://accounts.spotify.com/')||url.startsWith('https://www.spotify.com/'))return{action:'allow'};shell.openExternal(url).catch(()=>{});return{action:'deny'}});child.on('closed',()=>{if(spotifyAuthWindow===child)spotifyAuthWindow=null});child.loadURL(authUrl).catch(err=>{console.error('Spotify auth window load failed',err);w.webContents.executeJavaScript(`document.getElementById('status')&&(document.getElementById('status').textContent=${JSON.stringify('Spotify ERROR • login window failed')})`,true).catch(()=>{})})}
   w.webContents.on('will-navigate',(event,url)=>{if(isSpotifyAuthorize(url)){event.preventDefault();openSpotifyAuth(url)}});
-  w.webContents.on('before-input-event',(event,input)=>{
-    const code=input.code||'',key=input.key||'';
-    if(key==='Escape'||code==='Escape'){if(w.isFullScreen()){event.preventDefault();exitToMaximized()}return}
-    if(code==='F11'||key==='F11'){event.preventDefault();if(w.isFullScreen())exitToMaximized();else enterFullScreen();return}
-    if(!(input.control||input.meta))return;
-    const plus=code==='Equal'||code==='NumpadAdd'||key==='+'||key==='=',minus=code==='Minus'||code==='NumpadSubtract'||key==='-',reset=code==='Digit0'||code==='Numpad0'||key==='0';
-    if(plus){event.preventDefault();changeZoom(ZOOM_STEP)}else if(minus){event.preventDefault();changeZoom(-ZOOM_STEP)}else if(reset){event.preventDefault();resetZoom()}
-  });
-  w.webContents.on('dom-ready',()=>injectWindowsRuntime());w.webContents.on('did-finish-load',()=>{injectWindowsRuntime();applyZoom()});
-  w.on('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{applyZoom();injectWindowsRuntime()},90)});
-  w.on('leave-full-screen',()=>{if(!leavingFullScreen)return;setTimeout(()=>{try{w.maximize()}catch(e){}applyZoom();injectWindowsRuntime()},80)});
-  w.on('enter-full-screen',()=>setTimeout(()=>{applyZoom();injectWindowsRuntime()},120));
-  w.on('ready-to-show',()=>{try{w.maximize()}catch(e){}setTimeout(()=>enterFullScreen(),180)});
-  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=175&t='+Date.now());
-  w.webContents.setWindowOpenHandler(({url})=>{
-    if(url.startsWith('spotify:')){shell.openExternal(url).catch(()=>shell.openExternal('https://open.spotify.com/'));return{action:'deny'}}
-    if(isSpotifyAuthorize(url)){openSpotifyAuth(url);return{action:'deny'}}
-    if(url.startsWith('about:blank'))return{action:'allow',overrideBrowserWindowOptions:{width:1280,height:720,autoHideMenuBar:true,backgroundColor:'#000',fullscreen:false,fullscreenable:true}};
-    shell.openExternal(url).catch(()=>{});return{action:'deny'};
-  });
+  w.webContents.on('before-input-event',(event,input)=>{const code=input.code||'',key=input.key||'';if(key==='Escape'||code==='Escape'){if(w.isFullScreen()){event.preventDefault();exitToMaximized()}return}if(code==='F11'||key==='F11'){event.preventDefault();if(w.isFullScreen())exitToMaximized();else enterFullScreen();return}if(!(input.control||input.meta))return;const plus=code==='Equal'||code==='NumpadAdd'||key==='+'||key==='=',minus=code==='Minus'||code==='NumpadSubtract'||key==='-',reset=code==='Digit0'||code==='Numpad0'||key==='0';if(plus){event.preventDefault();changeZoom(ZOOM_STEP)}else if(minus){event.preventDefault();changeZoom(-ZOOM_STEP)}else if(reset){event.preventDefault();resetZoom()}});
+  w.webContents.on('dom-ready',()=>injectWindowsRuntime());w.webContents.on('did-finish-load',()=>{injectWindowsRuntime();applyZoom()});w.on('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{applyZoom();injectWindowsRuntime()},90)});w.on('leave-full-screen',()=>{if(!leavingFullScreen)return;setTimeout(()=>{try{w.maximize()}catch(e){}applyZoom();injectWindowsRuntime()},80)});w.on('enter-full-screen',()=>setTimeout(()=>{applyZoom();injectWindowsRuntime()},120));w.on('ready-to-show',()=>{try{w.maximize()}catch(e){}setTimeout(()=>enterFullScreen(),180)});
+  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=178&t='+Date.now());
+  w.webContents.setWindowOpenHandler(({url})=>{if(url.startsWith('spotify:')){shell.openExternal(url).catch(()=>shell.openExternal('https://open.spotify.com/'));return{action:'deny'}}if(isSpotifyAuthorize(url)){openSpotifyAuth(url);return{action:'deny'}}if(url.startsWith('about:blank'))return{action:'allow',overrideBrowserWindowOptions:{width:1280,height:720,autoHideMenuBar:true,backgroundColor:'#000',fullscreen:false,fullscreenable:true}};shell.openExternal(url).catch(()=>{});return{action:'deny'}});
 }
 
 app.whenReady().then(async()=>{
   mediaCacheDir=path.join(app.getPath('temp'),'AFD-DJ-Media');try{fs.rmSync(mediaCacheDir,{recursive:true,force:true});fs.mkdirSync(mediaCacheDir,{recursive:true})}catch(e){}
   protocol.handle('afdmedia',request=>{try{const u=new URL(request.url),token=decodeURIComponent(u.pathname.replace(/^\/+/,'')),p=MEDIA_URLS.get(token);if(!p)throw Error('Unknown media token');return net.fetch(pathToFileURL(p).toString())}catch(e){return new Response('Media not found',{status:404})}});
-  ipcMain.handle('afd-media-prepare',async(event,meta)=>{const src=event.sender.getURL();if(!src.startsWith('https://afd-dj.vercel.app/'))throw new Error('Media request blocked.');return prepareMedia(meta)});
-  await session.defaultSession.clearCache().catch(()=>{});await session.defaultSession.clearStorageData({storages:['serviceworkers','cachestorage']}).catch(()=>{});
-  session.defaultSession.setPermissionRequestHandler((wc,p,cb)=>cb(['media','fullscreen','window-management','display-capture'].includes(p)));
-  create();app.on('activate',()=>{if(BrowserWindow.getAllWindows().length===0)create()});
+  ipcMain.handle('afd-media-prepare',async(event,meta)=>{if(!trustedSender(event))throw new Error('Media request blocked.');return prepareMedia(meta)});
+  ipcMain.handle('afd-playlist-save',savePlaylistFile);ipcMain.handle('afd-playlist-read',readPlaylistFile);
+  await session.defaultSession.clearCache().catch(()=>{});await session.defaultSession.clearStorageData({storages:['serviceworkers','cachestorage']}).catch(()=>{});session.defaultSession.setPermissionRequestHandler((wc,p,cb)=>cb(['media','fullscreen','window-management','display-capture'].includes(p)));create();app.on('activate',()=>{if(BrowserWindow.getAllWindows().length===0)create()});
 });
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()});
