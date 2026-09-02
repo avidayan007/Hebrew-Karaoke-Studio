@@ -2,6 +2,7 @@ const {app,BrowserWindow,shell,session,ipcMain,protocol,net,dialog}=require('ele
 const fs=require('fs');
 const path=require('path');
 const crypto=require('crypto');
+const os=require('os');
 const {spawn}=require('child_process');
 const {pathToFileURL}=require('url');
 
@@ -21,8 +22,10 @@ const RUNTIME_LIBRARY_FIX_JS=fs.readFileSync(path.join(__dirname,'runtime-v171.j
 const RUNTIME_TEXT_SCROLL_JS=fs.readFileSync(path.join(__dirname,'runtime-v172.js'),'utf8');
 const RUNTIME_KEY_JS=fs.readFileSync(path.join(__dirname,'runtime-v176.js'),'utf8');
 const RUNTIME_MEDIA_PLAYLIST_JS=fs.readFileSync(path.join(__dirname,'runtime-v177.js'),'utf8');
+const RUNTIME_LOAD_JS=fs.readFileSync(path.join(__dirname,'runtime-v179.js'),'utf8');
 const RUNTIME_EJECT_JS=fs.readFileSync(path.join(__dirname,'runtime-v175.js'),'utf8');
 const MEDIA_URLS=new Map();
+const MEDIA_JOBS=new Map();
 const NATIVE_EXT=new Set(['.mp4','.m4v','.webm','.ogv','.ogg','.mp3','.wav','.wave','.m4a','.aac','.flac','.opus']);
 const VIDEO_EXT=new Set(['.mp4','.m4v','.mov','.webm','.ogv','.avi','.wmv','.asf','.mkv','.mpg','.mpeg','.m2v','.ts','.mts','.m2ts','.vob','.flv','.f4v','.3gp','.3g2','.rm','.rmvb','.divx','.dv']);
 let mediaCacheDir='';
@@ -38,7 +41,7 @@ function ffmpegExecutable(){
   return p;
 }
 function mediaUrl(filePath){const token=crypto.randomBytes(18).toString('hex');MEDIA_URLS.set(token,filePath);return'afdmedia://media/'+token}
-function runFfmpeg(args){return new Promise((resolve,reject)=>{const cp=spawn(ffmpegExecutable(),args,{windowsHide:true});let err='';cp.stderr.on('data',b=>{err+=b.toString();if(err.length>12000)err=err.slice(-12000)});cp.on('error',reject);cp.on('close',code=>code===0?resolve():reject(new Error(err.trim()||('FFmpeg exited '+code))))})}
+function runFfmpeg(args,timeoutMs=600000){return new Promise((resolve,reject)=>{const cp=spawn(ffmpegExecutable(),args,{windowsHide:true});let err='',done=false;try{os.setPriority(cp.pid,os.constants.priority.PRIORITY_BELOW_NORMAL)}catch(e){}const finish=(error)=>{if(done)return;done=true;clearTimeout(timer);error?reject(error):resolve()};const timer=setTimeout(()=>{try{cp.kill()}catch(e){}finish(new Error('FFmpeg conversion timed out.'))},timeoutMs);cp.stderr.on('data',b=>{err+=b.toString();if(err.length>12000)err=err.slice(-12000)});cp.on('error',e=>finish(e));cp.on('close',code=>finish(code===0?null:new Error(err.trim()||('FFmpeg exited '+code))))})}
 async function prepareMedia(meta){
   const input=path.resolve(String(meta?.path||''));
   if(!input||!fs.existsSync(input)||!fs.statSync(input).isFile())throw new Error('Media file was not found.');
@@ -46,7 +49,15 @@ async function prepareMedia(meta){
   if(!force&&NATIVE_EXT.has(ext))return{url:mediaUrl(input),converted:false,kind,name:path.basename(input)};
   const st=fs.statSync(input),sig=crypto.createHash('sha1').update(input+'|'+st.size+'|'+st.mtimeMs+'|'+kind).digest('hex');
   fs.mkdirSync(mediaCacheDir,{recursive:true});const output=path.join(mediaCacheDir,sig+(kind==='video'?'.mp4':'.wav'));
-  if(!fs.existsSync(output)||fs.statSync(output).size<1024){const args=kind==='video'?['-hide_banner','-loglevel','error','-y','-i',input,'-map','0:v:0?','-map','0:a:0?','-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart',output]:['-hide_banner','-loglevel','error','-y','-i',input,'-vn','-c:a','pcm_s16le','-ar','48000','-ac','2',output];await runFfmpeg(args)}
+  const jobKey=sig+'|'+kind;
+  if(!fs.existsSync(output)||fs.statSync(output).size<1024){
+    if(MEDIA_JOBS.has(jobKey))await MEDIA_JOBS.get(jobKey);
+    else{
+      const job=(async()=>{try{try{if(fs.existsSync(output))fs.unlinkSync(output)}catch(e){}const args=kind==='video'?['-hide_banner','-loglevel','error','-y','-threads','1','-i',input,'-map','0:v:0?','-map','0:a:0?','-c:v','libx264','-preset','ultrafast','-crf','24','-threads','1','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-movflags','+faststart',output]:['-hide_banner','-loglevel','error','-y','-threads','1','-i',input,'-vn','-c:a','pcm_s16le','-ar','48000','-ac','2',output];await runFfmpeg(args)}catch(e){try{if(fs.existsSync(output))fs.unlinkSync(output)}catch(x){}throw e}})();
+      MEDIA_JOBS.set(jobKey,job);try{await job}finally{MEDIA_JOBS.delete(jobKey)}
+    }
+  }
+  if(!fs.existsSync(output)||fs.statSync(output).size<1024)throw new Error('Converted media file was not created.');
   return{url:mediaUrl(output),converted:true,kind,name:path.basename(input)};
 }
 async function savePlaylistFile(event,payload){
@@ -73,7 +84,7 @@ function create(){
   function applyZoom(){const factor=clamp(fitForScreen()*manualZoom,MIN_ZOOM,MAX_ZOOM);w.webContents.setZoomFactor(factor);w.webContents.executeJavaScript(`window.dispatchEvent(new Event('resize'));`,true).catch(()=>{})}
   function changeZoom(delta){manualZoom=clamp(Math.round((manualZoom+delta)*100)/100,0.65,1.55);applyZoom()}
   function resetZoom(){manualZoom=1;applyZoom()}
-  async function injectWindowsRuntime(){try{await w.webContents.executeJavaScript(RUNTIME_BASE_JS,true);await w.webContents.executeJavaScript(RUNTIME_FIX_JS,true);await w.webContents.executeJavaScript(RUNTIME_PERSIST_JS,true);await w.webContents.executeJavaScript(RUNTIME_LIBRARY_JS,true);await w.webContents.executeJavaScript(RUNTIME_LIBRARY_FIX_JS,true);await w.webContents.executeJavaScript(RUNTIME_TEXT_SCROLL_JS,true);await w.webContents.executeJavaScript(RUNTIME_KEY_JS,true);await w.webContents.executeJavaScript(RUNTIME_MEDIA_PLAYLIST_JS,true);return await w.webContents.executeJavaScript(RUNTIME_EJECT_JS,true)}catch(err){console.error('AFD runtime inject failed',err);return{ok:false,error:String(err)}}}
+  async function injectWindowsRuntime(){try{await w.webContents.executeJavaScript(RUNTIME_BASE_JS,true);await w.webContents.executeJavaScript(RUNTIME_FIX_JS,true);await w.webContents.executeJavaScript(RUNTIME_PERSIST_JS,true);await w.webContents.executeJavaScript(RUNTIME_LIBRARY_JS,true);await w.webContents.executeJavaScript(RUNTIME_LIBRARY_FIX_JS,true);await w.webContents.executeJavaScript(RUNTIME_TEXT_SCROLL_JS,true);await w.webContents.executeJavaScript(RUNTIME_KEY_JS,true);await w.webContents.executeJavaScript(RUNTIME_MEDIA_PLAYLIST_JS,true);await w.webContents.executeJavaScript(RUNTIME_LOAD_JS,true);return await w.webContents.executeJavaScript(RUNTIME_EJECT_JS,true)}catch(err){console.error('AFD runtime inject failed',err);return{ok:false,error:String(err)}}}
   function exitToMaximized(){if(leavingFullScreen)return;leavingFullScreen=true;try{if(w.isFullScreen())w.setFullScreen(false)}catch(e){}setTimeout(()=>{try{w.maximize()}catch(e){}leavingFullScreen=false;applyZoom();injectWindowsRuntime()},180)}
   function enterFullScreen(){try{if(!w.isFullScreen())w.setFullScreen(true)}catch(e){}}
   function isSpotifyAuthorize(url){try{const u=new URL(url);return u.hostname==='accounts.spotify.com'&&u.pathname.startsWith('/authorize')}catch(e){return false}}
@@ -83,7 +94,7 @@ function create(){
   w.webContents.on('will-navigate',(event,url)=>{if(isSpotifyAuthorize(url)){event.preventDefault();openSpotifyAuth(url)}});
   w.webContents.on('before-input-event',(event,input)=>{const code=input.code||'',key=input.key||'';if(key==='Escape'||code==='Escape'){if(w.isFullScreen()){event.preventDefault();exitToMaximized()}return}if(code==='F11'||key==='F11'){event.preventDefault();if(w.isFullScreen())exitToMaximized();else enterFullScreen();return}if(!(input.control||input.meta))return;const plus=code==='Equal'||code==='NumpadAdd'||key==='+'||key==='=',minus=code==='Minus'||code==='NumpadSubtract'||key==='-',reset=code==='Digit0'||code==='Numpad0'||key==='0';if(plus){event.preventDefault();changeZoom(ZOOM_STEP)}else if(minus){event.preventDefault();changeZoom(-ZOOM_STEP)}else if(reset){event.preventDefault();resetZoom()}});
   w.webContents.on('dom-ready',()=>injectWindowsRuntime());w.webContents.on('did-finish-load',()=>{injectWindowsRuntime();applyZoom()});w.on('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{applyZoom();injectWindowsRuntime()},90)});w.on('leave-full-screen',()=>{if(!leavingFullScreen)return;setTimeout(()=>{try{w.maximize()}catch(e){}applyZoom();injectWindowsRuntime()},80)});w.on('enter-full-screen',()=>setTimeout(()=>{applyZoom();injectWindowsRuntime()},120));w.on('ready-to-show',()=>{try{w.maximize()}catch(e){}setTimeout(()=>enterFullScreen(),180)});
-  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=178&t='+Date.now());
+  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=179&t='+Date.now());
   w.webContents.setWindowOpenHandler(({url})=>{if(url.startsWith('spotify:')){shell.openExternal(url).catch(()=>shell.openExternal('https://open.spotify.com/'));return{action:'deny'}}if(isSpotifyAuthorize(url)){openSpotifyAuth(url);return{action:'deny'}}if(url.startsWith('about:blank'))return{action:'allow',overrideBrowserWindowOptions:{width:1280,height:720,autoHideMenuBar:true,backgroundColor:'#000',fullscreen:false,fullscreenable:true}};shell.openExternal(url).catch(()=>{});return{action:'deny'}});
 }
 
