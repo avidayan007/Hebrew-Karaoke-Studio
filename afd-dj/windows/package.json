@@ -1,11 +1,24 @@
 {
   "name":"afd-dj-windows",
-  "version":"1.2.7",
+  "version":"1.2.8",
   "description":"AFD DJ Windows Desktop",
   "main":"main.js",
   "author":"AFD DJ",
   "license":"UNLICENSED",
-  "scripts":{"start":"electron .","dist":"electron-builder --win portable --publish never"},
+  "scripts":{"start":"electron .","dist":"electron-builder --win nsis --publish never"},
   "devDependencies":{"electron":"^37.2.6","electron-builder":"^26.0.12"},
-  "build":{"appId":"com.afd.dj","productName":"AFD DJ","artifactName":"AFD-DJ-Windows-${version}-PORTABLE-${arch}.${ext}","win":{"target":["portable"]}}
+  "build":{
+    "appId":"com.afd.dj",
+    "productName":"AFD DJ",
+    "artifactName":"AFD-DJ-Windows-Setup-${version}-${arch}.${ext}",
+    "win":{"target":["nsis"]},
+    "nsis":{
+      "oneClick":false,
+      "allowToChangeInstallationDirectory":true,
+      "createDesktopShortcut":true,
+      "createStartMenuShortcut":true,
+      "shortcutName":"AFD DJ",
+      "deleteAppDataOnUninstall":false
+    }
+  }
 }
