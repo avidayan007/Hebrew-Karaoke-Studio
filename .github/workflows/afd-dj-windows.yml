@@ -57,7 +57,6 @@ jobs:
           }
           $m202 = Get-Content 'main-v202.js' -Raw
           if (-not $m202.Contains("RUNTIME_BASE_JS,RUNTIME_KEY_JS,RUNTIME_LOAD_JS,RUNTIME_EJECT_JS,RUNTIME_CORE_JS,SPOTIFY_PLAYBACK_LOCAL_JS,RUNTIME_SPOTIFY_JS,RUNTIME_RESCUE_JS")) { throw 'clean rescue injection order missing' }
-          if ($m202.Contains("RUNTIME_FIX_JS,RUNTIME_PERSIST_JS,RUNTIME_LIBRARY_JS")) { Write-Host 'Old runtime names exist only in source patch marker; verifying injection list separately.' }
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
           if ($pkg.version -ne '1.5.2') { throw 'package version is not 1.5.2' }
           if ($pkg.main -ne 'main-v202.js') { throw 'package main is not main-v202.js' }
@@ -72,6 +71,18 @@ jobs:
           if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
           node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
+      - name: Verify packaged rescue files
+        shell: pwsh
+        run: |
+          $asar = 'dist/win-unpacked/resources/app.asar'
+          if (!(Test-Path $asar)) { throw 'app.asar missing from packaged app' }
+          $list = & npx --no-install asar list $asar
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to list app.asar' }
+          foreach ($needle in @('main-v202.js','runtime-v202.js','runtime-v195.js','runtime-v196.js','spotify-playback-v85-local.js','preload.js')) {
+            if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
+          }
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.2-x64.exe')) { throw 'v1.5.2 installer missing' }
+          Write-Host 'Packaged app.asar contains rescue core and local Spotify runtime'
       - uses: actions/upload-artifact@v4
         with:
           name: AFD-DJ-Windows
