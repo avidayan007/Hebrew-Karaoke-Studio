@@ -23,6 +23,7 @@ jobs:
         shell: pwsh
         run: |
           node --check main-v184.js
+          node --check main-v200.js
           node --check preload.js
           node --check runtime-v175.js
           node --check runtime-v184.js
@@ -31,11 +32,20 @@ jobs:
           node --check runtime-v194.js
           node --check runtime-v195.js
           node --check runtime-v196.js
+          node --check runtime-v200.js
           node --check ../spotify-playback-v85.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
           node --check ../inline-youtube-core-v48.js
           node --check ../layout-mix-final-v138.js
+      - name: Verify v200 patch markers
+        shell: pwsh
+        run: |
+          node -e "const fs=require('fs');const s=fs.readFileSync('main-v184.js','utf8');for(const x of [\"RUNTIME_EJECT_JS=readRuntime('runtime-v175.js');\",\"RUNTIME_LOAD_JS,RUNTIME_EJECT_JS])await w.webContents.executeJavaScript(js,true)\",\"w.loadURL('https://afd-dj.vercel.app/workstation.html?v=186&t='+Date.now());\",\"await session.defaultSession.clearCache().catch(()=>{});\"])if(!s.includes(x))throw Error('v200 patch marker missing: '+x);console.log('v200 patch markers OK')"
+          if (!(Test-Path 'runtime-v194.js')) { throw 'runtime-v194 missing' }
+          if (!(Test-Path 'runtime-v195.js')) { throw 'runtime-v195 missing' }
+          if (!(Test-Path 'runtime-v196.js')) { throw 'runtime-v196 missing' }
+          if (!(Test-Path 'runtime-v200.js')) { throw 'runtime-v200 missing' }
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
