@@ -35,6 +35,7 @@ jobs:
           node --check runtime-v190.js
           node --check runtime-v191.js
           node --check runtime-v192.js
+          node --check runtime-v193.js
           node --check ../spotify-playback-v85.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
