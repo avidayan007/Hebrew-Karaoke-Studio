@@ -41,11 +41,21 @@ jobs:
       - name: Verify v200 patch markers
         shell: pwsh
         run: |
-          node -e "const fs=require('fs');const s=fs.readFileSync('main-v184.js','utf8');for(const x of [\"RUNTIME_EJECT_JS=readRuntime('runtime-v175.js');\",\"RUNTIME_LOAD_JS,RUNTIME_EJECT_JS])await w.webContents.executeJavaScript(js,true)\",\"w.loadURL('https://afd-dj.vercel.app/workstation.html?v=186&t='+Date.now());\",\"await session.defaultSession.clearCache().catch(()=>{});\"])if(!s.includes(x))throw Error('v200 patch marker missing: '+x);console.log('v200 patch markers OK')"
+          $src = Get-Content 'main-v184.js' -Raw
+          $markers = @(
+            "RUNTIME_EJECT_JS=readRuntime('runtime-v175.js');",
+            "RUNTIME_LOAD_JS,RUNTIME_EJECT_JS])await w.webContents.executeJavaScript(js,true)",
+            "w.loadURL('https://afd-dj.vercel.app/workstation.html?v=186&t='+Date.now());",
+            "await session.defaultSession.clearCache().catch(()=>{});"
+          )
+          foreach ($m in $markers) {
+            if (-not $src.Contains($m)) { throw "v200 patch marker missing: $m" }
+          }
           if (!(Test-Path 'runtime-v194.js')) { throw 'runtime-v194 missing' }
           if (!(Test-Path 'runtime-v195.js')) { throw 'runtime-v195 missing' }
           if (!(Test-Path 'runtime-v196.js')) { throw 'runtime-v196 missing' }
           if (!(Test-Path 'runtime-v200.js')) { throw 'runtime-v200 missing' }
+          Write-Host 'v200 patch markers OK'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
