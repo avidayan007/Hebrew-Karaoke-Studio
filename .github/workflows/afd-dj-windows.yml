@@ -28,23 +28,21 @@ jobs:
         shell: pwsh
         run: |
           node --check main-v184.js
-          node --check main-v200.js
+          node --check main-v202.js
           node --check preload.js
+          node --check runtime-v167.js
           node --check runtime-v175.js
           node --check runtime-v184.js
-          node --check runtime-v177.js
           node --check runtime-v185.js
-          node --check runtime-v194.js
           node --check runtime-v195.js
           node --check runtime-v196.js
-          node --check runtime-v200.js
-          node --check runtime-v201.js
+          node --check runtime-v202.js
           node --check spotify-playback-v85-local.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
           node --check ../inline-youtube-core-v48.js
           node --check ../layout-mix-final-v138.js
-      - name: Verify v201 stable core markers
+      - name: Verify rescue bootstrap markers
         shell: pwsh
         run: |
           $src = Get-Content 'main-v184.js' -Raw
@@ -55,16 +53,16 @@ jobs:
             "await session.defaultSession.clearCache().catch(()=>{});"
           )
           foreach ($m in $markers) {
-            if (-not $src.Contains($m)) { throw "v200 patch marker missing: $m" }
+            if (-not $src.Contains($m)) { throw "rescue patch marker missing: $m" }
           }
-          $m200 = Get-Content 'main-v200.js' -Raw
-          if (-not $m200.Contains("RUNTIME_EJECT_JS,RUNTIME_CORE_JS,SPOTIFY_PLAYBACK_LOCAL_JS,RUNTIME_SPOTIFY_JS,RUNTIME_GUARD_JS,RUNTIME_STABLE_JS")) { throw 'v201 injection order missing' }
-          if (!(Test-Path 'runtime-v195.js')) { throw 'runtime-v195 missing' }
-          if (!(Test-Path 'runtime-v196.js')) { throw 'runtime-v196 missing' }
-          if (!(Test-Path 'runtime-v200.js')) { throw 'runtime-v200 missing' }
-          if (!(Test-Path 'runtime-v201.js')) { throw 'runtime-v201 missing' }
-          if (!(Test-Path 'spotify-playback-v85-local.js')) { throw 'local Spotify playback missing' }
-          Write-Host 'v201 stable core markers OK'
+          $m202 = Get-Content 'main-v202.js' -Raw
+          if (-not $m202.Contains("RUNTIME_BASE_JS,RUNTIME_KEY_JS,RUNTIME_LOAD_JS,RUNTIME_EJECT_JS,RUNTIME_CORE_JS,SPOTIFY_PLAYBACK_LOCAL_JS,RUNTIME_SPOTIFY_JS,RUNTIME_RESCUE_JS")) { throw 'clean rescue injection order missing' }
+          if ($m202.Contains("RUNTIME_FIX_JS,RUNTIME_PERSIST_JS,RUNTIME_LIBRARY_JS")) { Write-Host 'Old runtime names exist only in source patch marker; verifying injection list separately.' }
+          $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
+          if ($pkg.version -ne '1.5.2') { throw 'package version is not 1.5.2' }
+          if ($pkg.main -ne 'main-v202.js') { throw 'package main is not main-v202.js' }
+          foreach ($f in @('runtime-v195.js','runtime-v196.js','runtime-v202.js','spotify-playback-v85-local.js')) { if (!(Test-Path $f)) { throw "$f missing" } }
+          Write-Host 'AFD rescue v1.5.2 markers OK'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
