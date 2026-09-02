@@ -1,7 +1,7 @@
 (()=>{
  const F=()=>document.getElementById('console'),D=()=>{try{return F()?.contentDocument||null}catch(e){return null}},W=()=>{try{return F()?.contentWindow||null}catch(e){return null}};
  if(window.__afdReplace158Installed){window.__afdReplace158Installed.refresh?.();return}
- let pending=false,boundDoc=null;
+ let pending=false,boundDoc=null,ytPointer=[];
  function nativePlaying(k){const d=D(),m=d?.getElementById('vid'+k);return!!(m&&(m.currentSrc||m.src)&&!m.paused&&!m.ended&&m.readyState>0)}
  function youtubePlaying(k){try{return!!window.AFDYouTubeState?.isPlaying?.(k)}catch(e){return false}}
  function isPlaying(k){return nativePlaying(k)||youtubePlaying(k)}
@@ -18,13 +18,16 @@
  }
  function loadLocal(deck,it){
   const win=W();if(!win||typeof win.load!=='function'||!it?.file)return;
+  try{window.AFDYouTubeState?.clear?.(deck,it)}catch(e){}
   win.load(deck,it.file);window.dispatchEvent(new CustomEvent('afd-local-load',{detail:{deck,item:it}}));
  }
- function itemForRow(row){
+ function itemForDrop(e){
   const api=window.__afdWin170;if(!api)return null;
-  if(row?.classList?.contains('afdLocalRow170'))return api.items?.find(x=>x.key===row.dataset.key)||null;
-  if(row?.classList?.contains('afdQ170'))return api.queue?.[Number(row.dataset.i)]||null;
-  return null;
+  const localKey=e.dataTransfer?.getData('application/x-afd-local-key')||'',qRaw=e.dataTransfer?.getData('application/x-afd-q-index');
+  let it=null;
+  if(localKey)it=api.items?.find(x=>x.key===localKey)||api.queue?.find(x=>x.key===localKey)||null;
+  if(!it&&qRaw!==''&&qRaw!=null)it=api.queue?.[Number(qRaw)]||null;
+  return it;
  }
  function frameClick(e){
   const b=e.target.closest?.('[data-a],[data-qdeck]');if(!b||b.dataset.afdOk158==='1')return;
@@ -32,17 +35,19 @@
   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();ask(k,()=>{b.dataset.afdOk158='1';b.click();setTimeout(()=>delete b.dataset.afdOk158,0)});
  }
  function frameDrop(e){
-  const d=D(),root=e.target.closest?.('.deckA,.deckB');if(!root)return;const k=root.classList.contains('deckB')?'B':'A';if(!isPlaying(k))return;
-  const localKey=e.dataTransfer?.getData('application/x-afd-local-key')||'',qRaw=e.dataTransfer?.getData('application/x-afd-q-index');
-  if(!localKey&&(qRaw===''||qRaw==null))return;
-  const api=window.__afdWin170;let it=null;
-  if(localKey)it=api?.items?.find(x=>x.key===localKey)||api?.queue?.find(x=>x.key===localKey)||null;
-  if(!it&&qRaw!==''&&qRaw!=null)it=api?.queue?.[Number(qRaw)]||null;
-  if(!it)return;
-  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();ask(k,()=>loadLocal(k,it));
+  const root=e.target.closest?.('.deckA,.deckB');if(!root)return;const k=root.classList.contains('deckB')?'B':'A',it=itemForDrop(e);if(!it)return;
+  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();restoreYTTargets();
+  if(isPlaying(k))ask(k,()=>loadLocal(k,it));else loadLocal(k,it);
  }
+ function disableYTTargets(){
+  const d=D();ytPointer=[];['A','B'].forEach(k=>{const f=d?.getElementById('ytDeck'+k);if(f){ytPointer.push([f,f.style.pointerEvents]);f.style.pointerEvents='none'}})
+ }
+ function restoreYTTargets(){ytPointer.forEach(([f,v])=>{try{f.style.pointerEvents=v||''}catch(e){}});ytPointer=[]}
+ function frameDragStart(e){if(e.target.closest?.('.afdLocalRow170,.afdQ170'))disableYTTargets()}
+ function frameDragEnd(){restoreYTTargets()}
  function bindFrame(){
-  const d=D();if(!d||d===boundDoc)return;boundDoc=d;d.addEventListener('click',frameClick,true);d.addEventListener('drop',frameDrop,true);
+  const d=D();if(!d||d===boundDoc)return;boundDoc=d;
+  d.addEventListener('click',frameClick,true);d.addEventListener('dragstart',frameDragStart,true);d.addEventListener('dragend',frameDragEnd,true);d.addEventListener('drop',frameDrop,true);
  }
  document.addEventListener('click',parentClick,true);
  window.addEventListener('afd-online-drag-load',e=>{const k=e.detail?.deck;if(!['A','B'].includes(k)||!isPlaying(k))return;e.preventDefault();e.stopImmediatePropagation();const detail={...e.detail};ask(k,()=>window.dispatchEvent(new CustomEvent('afd-online-drag-load-confirmed',{detail})))},true);
