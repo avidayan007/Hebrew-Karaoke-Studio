@@ -30,6 +30,8 @@ jobs:
           node --check runtime-v185.js
           node --check runtime-v186.js
           node --check runtime-v187.js
+          node --check runtime-v188.js
+          node --check runtime-v189.js
           node --check ../spotify-playback-v84.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
