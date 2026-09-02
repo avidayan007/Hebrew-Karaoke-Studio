@@ -1,11 +1,11 @@
 {
   "name":"afd-dj-windows",
-  "version":"1.2.5",
+  "version":"1.2.6",
   "description":"AFD DJ Windows Desktop",
   "main":"main.js",
   "author":"AFD DJ",
   "license":"UNLICENSED",
-  "scripts":{"start":"electron .","dist":"electron-builder --win portable nsis --publish never"},
+  "scripts":{"start":"electron .","dist":"electron-builder --win portable --publish never"},
   "devDependencies":{"electron":"^37.2.6","electron-builder":"^26.0.12"},
-  "build":{"appId":"com.afd.dj","productName":"AFD DJ","artifactName":"AFD-DJ-Windows-${version}-${arch}.${ext}","win":{"target":["portable","nsis"]},"nsis":{"oneClick":false,"allowToChangeInstallationDirectory":true,"createDesktopShortcut":true,"createStartMenuShortcut":true}}
+  "build":{"appId":"com.afd.dj","productName":"AFD DJ","artifactName":"AFD-DJ-Windows-${version}-PORTABLE-${arch}.${ext}","win":{"target":["portable"]}}
 }
