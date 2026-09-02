@@ -30,6 +30,7 @@ jobs:
           node --check ../spotify-playback-v84.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
+          node --check ../inline-youtube-core-v46.js
           node --check ../layout-mix-final-v138.js
       - run: npm install
       - run: npm run dist
