@@ -9,7 +9,7 @@ const DESIGN_HEIGHT=950;
 const MIN_ZOOM=0.55;
 const MAX_ZOOM=1.40;
 const ZOOM_STEP=0.10;
-const RUNTIME_JS=fs.readFileSync(path.join(__dirname,'runtime-v166.js'),'utf8');
+const RUNTIME_JS=fs.readFileSync(path.join(__dirname,'runtime-v167.js'),'utf8');
 
 function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
 
@@ -138,7 +138,7 @@ function create(){
     setTimeout(()=>enterFullScreen(),180);
   });
 
-  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=166');
+  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=167');
 
   w.webContents.setWindowOpenHandler(({url})=>{
     if(url.startsWith('spotify:')){
