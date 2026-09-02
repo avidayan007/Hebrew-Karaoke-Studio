@@ -19,6 +19,11 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: afd-dj/windows/package.json
+      - name: Prepare local Spotify playback runtime
+        shell: pwsh
+        run: |
+          Copy-Item ../spotify-playback-v85.js ./spotify-playback-v85-local.js -Force
+          if (!(Test-Path 'spotify-playback-v85-local.js')) { throw 'Local Spotify playback runtime missing' }
       - name: Check JavaScript syntax
         shell: pwsh
         run: |
@@ -33,12 +38,13 @@ jobs:
           node --check runtime-v195.js
           node --check runtime-v196.js
           node --check runtime-v200.js
-          node --check ../spotify-playback-v85.js
+          node --check runtime-v201.js
+          node --check spotify-playback-v85-local.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
           node --check ../inline-youtube-core-v48.js
           node --check ../layout-mix-final-v138.js
-      - name: Verify v200 patch markers
+      - name: Verify v201 stable core markers
         shell: pwsh
         run: |
           $src = Get-Content 'main-v184.js' -Raw
@@ -51,11 +57,14 @@ jobs:
           foreach ($m in $markers) {
             if (-not $src.Contains($m)) { throw "v200 patch marker missing: $m" }
           }
-          if (!(Test-Path 'runtime-v194.js')) { throw 'runtime-v194 missing' }
+          $m200 = Get-Content 'main-v200.js' -Raw
+          if (-not $m200.Contains("RUNTIME_EJECT_JS,RUNTIME_CORE_JS,SPOTIFY_PLAYBACK_LOCAL_JS,RUNTIME_SPOTIFY_JS,RUNTIME_GUARD_JS,RUNTIME_STABLE_JS")) { throw 'v201 injection order missing' }
           if (!(Test-Path 'runtime-v195.js')) { throw 'runtime-v195 missing' }
           if (!(Test-Path 'runtime-v196.js')) { throw 'runtime-v196 missing' }
           if (!(Test-Path 'runtime-v200.js')) { throw 'runtime-v200 missing' }
-          Write-Host 'v200 patch markers OK'
+          if (!(Test-Path 'runtime-v201.js')) { throw 'runtime-v201 missing' }
+          if (!(Test-Path 'spotify-playback-v85-local.js')) { throw 'local Spotify playback missing' }
+          Write-Host 'v201 stable core markers OK'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
