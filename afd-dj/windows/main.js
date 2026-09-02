@@ -9,7 +9,8 @@ const DESIGN_HEIGHT=950;
 const MIN_ZOOM=0.55;
 const MAX_ZOOM=1.40;
 const ZOOM_STEP=0.10;
-const RUNTIME_JS=fs.readFileSync(path.join(__dirname,'runtime-v167.js'),'utf8');
+const RUNTIME_BASE_JS=fs.readFileSync(path.join(__dirname,'runtime-v167.js'),'utf8');
+const RUNTIME_FIX_JS=fs.readFileSync(path.join(__dirname,'runtime-v168.js'),'utf8');
 
 function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
 
@@ -36,6 +37,7 @@ function create(){
   let manualZoom=1;
   let resizeTimer=null;
   let leavingFullScreen=false;
+  let spotifyAuthWindow=null;
 
   function fitForScreen(){
     const b=w.getContentBounds();
@@ -58,11 +60,14 @@ function create(){
     applyZoom();
   }
 
-  function injectWindowsRuntime(){
-    return w.webContents.executeJavaScript(RUNTIME_JS,true).catch(err=>{
+  async function injectWindowsRuntime(){
+    try{
+      await w.webContents.executeJavaScript(RUNTIME_BASE_JS,true);
+      return await w.webContents.executeJavaScript(RUNTIME_FIX_JS,true);
+    }catch(err){
       console.error('AFD runtime inject failed',err);
       return {ok:false,error:String(err)};
-    });
+    }
   }
 
   function exitToMaximized(){
@@ -80,6 +85,86 @@ function create(){
   function enterFullScreen(){
     try{if(!w.isFullScreen())w.setFullScreen(true);}catch(e){}
   }
+
+  function isSpotifyAuthorize(url){
+    try{
+      const u=new URL(url);
+      return u.hostname==='accounts.spotify.com'&&u.pathname.startsWith('/authorize');
+    }catch(e){return false;}
+  }
+
+  function isSpotifyCallback(url){
+    try{
+      const u=new URL(url);
+      const state=u.searchParams.get('state')||'';
+      return u.origin==='https://afd-dj.vercel.app'&&u.pathname.endsWith('/workstation.html')&&state.startsWith('afd168_');
+    }catch(e){return false;}
+  }
+
+  function sendSpotifyCallback(url){
+    const js=`window.__afdSpotifyCallback168 ? window.__afdSpotifyCallback168(${JSON.stringify(url)}) : Promise.reject(new Error('Spotify callback handler not ready'))`;
+    w.webContents.executeJavaScript(js,true).catch(err=>{
+      console.error('Spotify callback failed',err);
+      w.webContents.executeJavaScript(`document.getElementById('status')&&(document.getElementById('status').textContent=${JSON.stringify('Spotify ERROR • callback failed')})`,true).catch(()=>{});
+    });
+  }
+
+  function openSpotifyAuth(authUrl){
+    if(spotifyAuthWindow&&!spotifyAuthWindow.isDestroyed()){
+      try{spotifyAuthWindow.close();}catch(e){}
+    }
+    const child=new BrowserWindow({
+      parent:w,
+      modal:true,
+      width:540,
+      height:760,
+      minWidth:460,
+      minHeight:620,
+      title:'Spotify Login',
+      autoHideMenuBar:true,
+      backgroundColor:'#121212',
+      show:true,
+      webPreferences:{
+        contextIsolation:true,
+        nodeIntegration:false,
+        webSecurity:true
+      }
+    });
+    spotifyAuthWindow=child;
+
+    let handled=false;
+    const capture=(event,url)=>{
+      if(handled||!isSpotifyCallback(url))return;
+      handled=true;
+      try{event?.preventDefault?.();}catch(e){}
+      sendSpotifyCallback(url);
+      setTimeout(()=>{try{if(!child.isDestroyed())child.close();}catch(e){}},80);
+    };
+
+    child.webContents.on('will-navigate',capture);
+    child.webContents.on('will-redirect',capture);
+    child.webContents.on('did-navigate',(_e,url)=>capture(null,url));
+    child.webContents.on('did-navigate-in-page',(_e,url)=>capture(null,url));
+    child.webContents.setWindowOpenHandler(({url})=>{
+      if(url.startsWith('https://accounts.spotify.com/')||url.startsWith('https://www.spotify.com/')){
+        return{action:'allow'};
+      }
+      shell.openExternal(url).catch(()=>{});
+      return{action:'deny'};
+    });
+    child.on('closed',()=>{if(spotifyAuthWindow===child)spotifyAuthWindow=null;});
+    child.loadURL(authUrl).catch(err=>{
+      console.error('Spotify auth window load failed',err);
+      w.webContents.executeJavaScript(`document.getElementById('status')&&(document.getElementById('status').textContent=${JSON.stringify('Spotify ERROR • login window failed')})`,true).catch(()=>{});
+    });
+  }
+
+  w.webContents.on('will-navigate',(event,url)=>{
+    if(isSpotifyAuthorize(url)){
+      event.preventDefault();
+      openSpotifyAuth(url);
+    }
+  });
 
   w.webContents.on('before-input-event',(event,input)=>{
     const code=input.code||'';
@@ -133,16 +218,27 @@ function create(){
     },80);
   });
 
+  w.on('enter-full-screen',()=>{
+    setTimeout(()=>{
+      applyZoom();
+      injectWindowsRuntime();
+    },120);
+  });
+
   w.on('ready-to-show',()=>{
     try{w.maximize();}catch(e){}
     setTimeout(()=>enterFullScreen(),180);
   });
 
-  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=167');
+  w.loadURL('https://afd-dj.vercel.app/workstation.html?v=168');
 
   w.webContents.setWindowOpenHandler(({url})=>{
     if(url.startsWith('spotify:')){
       shell.openExternal(url).catch(()=>shell.openExternal('https://open.spotify.com/'));
+      return{action:'deny'};
+    }
+    if(isSpotifyAuthorize(url)){
+      openSpotifyAuth(url);
       return{action:'deny'};
     }
     if(url.startsWith('about:blank')){
@@ -158,7 +254,7 @@ function create(){
         }
       };
     }
-    shell.openExternal(url);
+    shell.openExternal(url).catch(()=>{});
     return{action:'deny'};
   });
 }
