@@ -1,22 +1,177 @@
 (()=>{
  const $=id=>document.getElementById(id),D=()=>{try{return $('console')?.contentDocument}catch(e){return null}};
- let player=null,deviceId='',ready=false,activeDeck=null,loaded={A:null,B:null},connecting=null,lastGesture=0,lastState=null,chain=Promise.resolve(),internal=false;
+ let player=null,sdkDeviceId='',sdkReady=false,sdkFailed=false,connectPromise=null,activeDeck=null,activeDeviceId='',loaded={A:null,B:null},chain=Promise.resolve(),lastGesture=0,lastState=null;
+ const isElectron=/Electron\//i.test(navigator.userAgent);
  const isiOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1;
- const token=()=>sessionStorage.getItem('afdSPToken')||'';const uriOf=it=>it?.uri||it?.id&&('spotify:track:'+it.id)||'';
+ const token=()=>sessionStorage.getItem('afdSPToken')||'';
+ const uriOf=it=>it?.uri||(it?.id?'spotify:track:'+it.id:'');
  const esc=s=>String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
  const status=s=>{const e=$('status');if(e)e.textContent=s;console.log('[AFD Spotify]',s)};
- function sdk(){return new Promise((ok,no)=>{if(window.Spotify?.Player)return ok();const prev=window.onSpotifyWebPlaybackSDKReady;window.onSpotifyWebPlaybackSDKReady=()=>{try{prev?.()}catch(e){}ok()};let s=document.querySelector('script[data-afd-sp-sdk]');if(!s){s=document.createElement('script');s.src='https://sdk.scdn.co/spotify-player.js';s.dataset.afdSpSdk='1';s.onerror=()=>no(Error('Spotify SDK load failed'));document.head.appendChild(s)}})}
- async function ensure(){if(ready&&player&&deviceId)return player;if(connecting)return connecting;connecting=(async()=>{if(!token())throw Error('אין חיבור Spotify');await sdk();if(!player){player=new Spotify.Player({name:'AFD DJ Spotify Player',getOAuthToken:cb=>cb(token()),volume:1,enableMediaSession:true});player.addListener('ready',({device_id})=>{deviceId=device_id;ready=true});player.addListener('not_ready',()=>{ready=false;deviceId=''});player.addListener('player_state_changed',s=>{if(s)lastState=s});const c=await player.connect();if(!c)throw Error('Spotify SDK connect failed')}for(let i=0;i<100&&!ready;i++)await new Promise(r=>setTimeout(r,100));if(!ready)throw Error('Spotify player not ready');return player})().finally(()=>connecting=null);return connecting}
- function paint(deck,it){const d=D(),screen=d?.getElementById('vid'+deck)?.closest('.screen')||d?.querySelector('.deck'+deck+' .screen');if(!screen)return;let h=d.getElementById('afdSP105Deck'+deck);if(!h){h=d.createElement('div');h.id='afdSP105Deck'+deck;h.style.cssText='position:absolute;inset:0;z-index:31;background:#07090c;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;color:white;pointer-events:none';screen.appendChild(h)}h.innerHTML='<div><img src="'+esc(it.album?.images?.[0]?.url||'')+'" style="width:140px;max-width:75%;border-radius:8px"><div style="font-weight:900;margin-top:7px">'+esc(it.name)+'</div><div style="font-size:10px;color:#aeb7c1">'+esc((it.artists||[]).map(a=>a.name).join(', '))+'</div></div>'}
- async function api(path,opt={}){const r=await fetch('https://api.spotify.com/v1'+path,{...opt,headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'}});if(!r.ok&&r.status!==204)throw Error('HTTP '+r.status);return r}
- async function state(){const s=await player?.getCurrentState().catch(()=>null);if(s)lastState=s;return s}
- async function load(deck,it){loaded[deck]=it;paint(deck,it);await ensure();status('Spotify READY • Deck '+deck)}
- async function play(deck){const it=loaded[deck];if(!it)return;await ensure();const uri=uriOf(it),s=await state(),cur=s?.track_window?.current_track?.uri||'';activeDeck=deck;try{await player.activateElement()}catch(e){}if(cur===uri&&s?.paused){await player.resume();return}if(cur===uri&&!s?.paused)return;await api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[deviceId],play:false})});await api('/me/player/play?device_id='+encodeURIComponent(deviceId),{method:'PUT',body:JSON.stringify({uris:[uri],position_ms:0})});if(isiOS){try{await player.pause();await player.seek(0);await player.activateElement();await player.resume()}catch(e){}}}
- async function pauseDeck(deck){if(!loaded[deck]||activeDeck!==deck)return;await ensure();try{await player.pause()}catch(e){await api('/me/player/pause?device_id='+encodeURIComponent(deviceId),{method:'PUT'})}status('Spotify PAUSE • Deck '+deck)}
- async function stopDeck(deck){if(!loaded[deck]||activeDeck!==deck)return;await ensure();try{await player.pause()}catch(e){await api('/me/player/pause?device_id='+encodeURIComponent(deviceId),{method:'PUT'})}try{await player.seek(0)}catch(e){}status('Spotify STOP • Deck '+deck+' • 00:00')}
- window.addEventListener('afd-deck-transport',e=>{const {deck,action}=e.detail||{};if(!loaded[deck])return;if(action==='pause')chain=chain.then(()=>pauseDeck(deck));if(action==='stop')chain=chain.then(()=>stopDeck(deck));chain=chain.catch(x=>status('Spotify ERROR • '+x.message))});
- window.addEventListener('afd-local-load',e=>{const k=e.detail?.deck;if(loaded[k]){loaded[k]=null;D()?.getElementById('afdSP105Deck'+k)?.remove();if(activeDeck===k)activeDeck=null}});
- window.addEventListener('afd-spotify-load',e=>{const x=e.detail;if(x?.deck&&x?.item)load(x.deck,x.item).catch(err=>status(err.message))});
- function bind(){const d=D();if(!d)return;['A','B'].forEach(deck=>{const root=d.querySelector('.deck'+deck)||d.getElementById('vid'+deck)?.closest('.panel'),b=root?.querySelector('.transport .play');if(!b||b.dataset.afdSP109)return;b.dataset.afdSP109='1';const go=e=>{if(!loaded[deck])return;e.preventDefault();e.stopImmediatePropagation();const n=Date.now();if(n-lastGesture<400)return;lastGesture=n;try{player?.activateElement()}catch(x){}chain=chain.then(()=>play(deck)).catch(x=>status('Spotify ERROR • '+x.message))};b.addEventListener('pointerdown',go,true);b.addEventListener('touchstart',go,{capture:true,passive:false});b.addEventListener('click',e=>{if(loaded[deck]){e.preventDefault();e.stopImmediatePropagation();if(Date.now()-lastGesture>400)chain=chain.then(()=>play(deck))}},true)})}
- $('afdSpotifyDiag105')?.remove();fr=$('console');fr?.addEventListener('load',()=>setTimeout(bind,100));setTimeout(bind,400);setInterval(bind,1200);
+ const errText=e=>String(e?.message||e||'Spotify error').replace(/^HTTP\s*/,'Spotify HTTP ');
+ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+ async function api(path,opt={}){
+   if(!token())throw Error('אין חיבור Spotify');
+   const r=await fetch('https://api.spotify.com/v1'+path,{...opt,headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json',...(opt.headers||{})}});
+   if(r.status===401)throw Error('החיבור ל-Spotify פג. בצע חיבור מחדש');
+   if(r.status===403)throw Error('Spotify דורש חשבון Premium והרשאת Playback');
+   if(r.status===404)throw Error('לא נמצא נגן Spotify פעיל');
+   if(!r.ok&&r.status!==204){let msg='';try{const j=await r.clone().json();msg=j?.error?.message||''}catch(e){}throw Error(msg||('HTTP '+r.status))}
+   return r;
+ }
+
+ function paint(deck,it){
+   const d=D(),screen=d?.getElementById('vid'+deck)?.closest('.screen')||d?.querySelector('.deck'+deck+' .screen');
+   if(!screen)return;
+   if(getComputedStyle(screen).position==='static')screen.style.position='relative';
+   let h=d.getElementById('afdSP105Deck'+deck);
+   if(!h){h=d.createElement('div');h.id='afdSP105Deck'+deck;h.style.cssText='position:absolute;inset:0;z-index:31;background:#07090c;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;color:white;pointer-events:none';screen.appendChild(h)}
+   h.innerHTML='<div><img src="'+esc(it.album?.images?.[0]?.url||'')+'" style="width:140px;max-width:75%;border-radius:8px"><div style="font-weight:900;margin-top:7px">'+esc(it.name)+'</div><div style="font-size:10px;color:#aeb7c1">'+esc((it.artists||[]).map(a=>a.name).join(', '))+'</div></div>';
+ }
+
+ function loadSdk(){
+   return new Promise((ok,no)=>{
+     if(window.Spotify?.Player)return ok();
+     const prev=window.onSpotifyWebPlaybackSDKReady;
+     let settled=false;
+     const done=()=>{if(settled)return;settled=true;try{prev?.()}catch(e){}ok()};
+     window.onSpotifyWebPlaybackSDKReady=done;
+     let s=document.querySelector('script[data-afd-sp-sdk]');
+     if(!s){s=document.createElement('script');s.src='https://sdk.scdn.co/spotify-player.js';s.dataset.afdSpSdk='1';s.onerror=()=>{if(!settled){settled=true;no(Error('Spotify SDK load failed'))}};document.head.appendChild(s)}
+     setTimeout(()=>{if(!settled&&!window.Spotify?.Player){settled=true;no(Error('Spotify SDK timeout'))}},7000);
+   });
+ }
+
+ async function ensureSdk(){
+   if(sdkReady&&player&&sdkDeviceId)return sdkDeviceId;
+   if(sdkFailed)throw Error('Spotify in-app player unavailable');
+   if(connectPromise)return connectPromise;
+   connectPromise=(async()=>{
+     await loadSdk();
+     if(!player){
+       player=new Spotify.Player({name:'AFD DJ Spotify Player',getOAuthToken:cb=>cb(token()),volume:1,enableMediaSession:true});
+       player.addListener('ready',({device_id})=>{sdkDeviceId=device_id;sdkReady=true;status('Spotify player ready')});
+       player.addListener('not_ready',()=>{sdkReady=false;sdkDeviceId=''});
+       player.addListener('initialization_error',({message})=>{sdkFailed=true;status('Spotify player error • '+message)});
+       player.addListener('authentication_error',({message})=>{sdkFailed=true;status('Spotify login error • '+message)});
+       player.addListener('account_error',({message})=>{sdkFailed=true;status('Spotify Premium required • '+message)});
+       player.addListener('playback_error',({message})=>status('Spotify playback error • '+message));
+       player.addListener('player_state_changed',s=>{if(s)lastState=s});
+       const connected=await player.connect();
+       if(!connected)throw Error('Spotify SDK connect failed');
+     }
+     for(let i=0;i<70&&!sdkReady&&!sdkFailed;i++)await sleep(100);
+     if(!sdkReady){sdkFailed=true;throw Error('Spotify in-app player unavailable')}
+     return sdkDeviceId;
+   })().finally(()=>{connectPromise=null});
+   return connectPromise;
+ }
+
+ async function devices(){
+   const r=await api('/me/player/devices');
+   const j=await r.json();
+   return (j.devices||[]).filter(d=>d&&!d.is_restricted);
+ }
+
+ async function connectDevice(){
+   const list=await devices();
+   const preferred=list.find(d=>d.is_active)||list.find(d=>/computer|desktop/i.test(d.type||''))||list[0];
+   if(!preferred)throw Error('פתח את אפליקציית Spotify במחשב ונגן שיר פעם אחת');
+   activeDeviceId=preferred.id;
+   return preferred.id;
+ }
+
+ async function resolvePlaybackDevice(){
+   if(isElectron){
+     try{return {id:await connectDevice(),mode:'connect'}}catch(connectErr){
+       try{return {id:await ensureSdk(),mode:'sdk'}}catch(sdkErr){throw connectErr}
+     }
+   }
+   try{return {id:await ensureSdk(),mode:'sdk'}}catch(sdkErr){return {id:await connectDevice(),mode:'connect'}}
+ }
+
+ async function startOn(id,uri){
+   await api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[id],play:false})});
+   await sleep(180);
+   await api('/me/player/play?device_id='+encodeURIComponent(id),{method:'PUT',body:JSON.stringify({uris:[uri],position_ms:0})});
+ }
+
+ async function load(deck,it){
+   loaded[deck]=it;
+   paint(deck,it);
+   status('Spotify LOADED • Deck '+deck+' • לחץ PLAY');
+ }
+
+ async function play(deck){
+   const it=loaded[deck];if(!it)return;
+   const uri=uriOf(it);if(!uri)throw Error('Spotify track URI missing');
+   activeDeck=deck;
+   status('Spotify מתחיל לנגן • Deck '+deck+'…');
+   const target=await resolvePlaybackDevice();
+   activeDeviceId=target.id;
+   if(target.mode==='sdk'){
+     try{await player?.activateElement()}catch(e){}
+     const s=await player?.getCurrentState().catch(()=>null);
+     const cur=s?.track_window?.current_track?.uri||'';
+     if(cur===uri&&s?.paused){await player.resume();status('Spotify PLAY • Deck '+deck);return}
+     if(cur===uri&&!s?.paused){status('Spotify PLAY • Deck '+deck);return}
+     await startOn(target.id,uri);
+     if(isiOS){try{await player.pause();await player.seek(0);await player.activateElement();await player.resume()}catch(e){}}
+     status('Spotify PLAY • Deck '+deck+' • AFD Player');
+   }else{
+     await startOn(target.id,uri);
+     status('Spotify PLAY • Deck '+deck+' • Spotify Connect');
+   }
+ }
+
+ async function pauseDeck(deck){
+   if(!loaded[deck]||activeDeck!==deck)return;
+   if(player&&sdkReady&&activeDeviceId===sdkDeviceId){try{await player.pause();status('Spotify PAUSE • Deck '+deck);return}catch(e){}}
+   const id=activeDeviceId||await connectDevice();
+   await api('/me/player/pause?device_id='+encodeURIComponent(id),{method:'PUT'});
+   status('Spotify PAUSE • Deck '+deck);
+ }
+
+ async function stopDeck(deck){
+   if(!loaded[deck]||activeDeck!==deck)return;
+   await pauseDeck(deck);
+   if(player&&sdkReady&&activeDeviceId===sdkDeviceId){try{await player.seek(0)}catch(e){}}
+   status('Spotify STOP • Deck '+deck+' • 00:00');
+ }
+
+ function queue(fn){chain=chain.then(fn).catch(e=>status('Spotify ERROR • '+errText(e)));}
+
+ window.addEventListener('afd-deck-transport',e=>{
+   const {deck,action}=e.detail||{};if(!loaded[deck])return;
+   if(action==='pause')queue(()=>pauseDeck(deck));
+   if(action==='stop')queue(()=>stopDeck(deck));
+ });
+ window.addEventListener('afd-local-load',e=>{
+   const k=e.detail?.deck;if(loaded[k]){loaded[k]=null;D()?.getElementById('afdSP105Deck'+k)?.remove();if(activeDeck===k)activeDeck=null}
+ });
+ window.addEventListener('afd-spotify-load',e=>{const x=e.detail;if(x?.deck&&x?.item)load(x.deck,x.item)});
+
+ function deckFromButton(t,d){
+   const b=t?.closest?.('.transport .play,[data-act="play"]');if(!b)return null;
+   for(const deck of ['A','B']){const root=d.querySelector('.deck'+deck)||d.getElementById('vid'+deck)?.closest('.panel');if(root?.contains(b))return deck}
+   return null;
+ }
+ function bind(){
+   const d=D();if(!d||d.documentElement.dataset.afdSP164)return;
+   d.documentElement.dataset.afdSP164='1';
+   const intercept=e=>{
+     const deck=deckFromButton(e.target,d);if(!deck||!loaded[deck])return;
+     e.preventDefault();e.stopImmediatePropagation();
+     const now=Date.now();if(now-lastGesture<350)return;lastGesture=now;
+     try{player?.activateElement()}catch(x){}
+     queue(()=>play(deck));
+   };
+   d.addEventListener('pointerdown',intercept,true);
+   d.addEventListener('click',e=>{
+     const deck=deckFromButton(e.target,d);if(!deck||!loaded[deck])return;
+     e.preventDefault();e.stopImmediatePropagation();
+     if(Date.now()-lastGesture>350)queue(()=>play(deck));
+   },true);
+ }
+ const fr=$('console');fr?.addEventListener('load',()=>setTimeout(bind,80));setTimeout(bind,250);setInterval(bind,1000);
 })();
