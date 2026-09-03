@@ -28,53 +28,50 @@ jobs:
         shell: pwsh
         run: |
           foreach ($f in @(
-            'main-v184.js','main-v200.js','main-v203.js','main-v205.js','main-v206.js','main-v207.js','main-v208.js','main-v209.js','main-v210.js','main-v211.js','main-v212.js','main-v213.js','main-v214.js','main-v215.js','main-v216.js','main-v217.js','main-v218.js','main-v219.js','main-v220.js',
-            'preload.js','runtime-v167.js','runtime-v168.js','runtime-v169.js','runtime-v170.js','runtime-v171.js','runtime-v172.js','runtime-v175.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v205.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','runtime-v210.js','runtime-v211.js','runtime-v212.js','runtime-v213.js','runtime-v214.js','runtime-v215.js','runtime-v216.js','runtime-v217.js','runtime-v218.js','runtime-v220.js','spotify-playback-v85-local.js','../deck-replace-confirm-v158.js','../inline-youtube.js','../inline-youtube-core-v48.js'
+            'main-v184.js','main-v200.js','main-v203.js','main-v205.js','main-v206.js','main-v207.js','main-v208.js','main-v209.js','main-v210.js','main-v211.js','main-v212.js','main-v213.js','main-v214.js','main-v215.js','main-v216.js','main-v217.js','main-v218.js','main-v219.js','main-v220.js','main-v221.js',
+            'preload.js','runtime-v167.js','runtime-v168.js','runtime-v169.js','runtime-v170.js','runtime-v171.js','runtime-v172.js','runtime-v175.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v205.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','runtime-v210.js','runtime-v211.js','runtime-v212.js','runtime-v213.js','runtime-v214.js','runtime-v215.js','runtime-v216.js','runtime-v217.js','runtime-v218.js','runtime-v220.js','runtime-v221.js','spotify-playback-v85-local.js','../deck-replace-confirm-v158.js','../inline-youtube.js','../inline-youtube-core-v48.js'
           )) { node --check $f; if ($LASTEXITCODE -ne 0) { throw "Syntax failed: $f" } }
-      - name: Verify v1.5.20 safe startup YouTube Mix and online seek
+      - name: Verify v1.5.21 direct YouTube Play from Side View
         shell: pwsh
         run: |
-          $m = Get-Content 'main-v220.js' -Raw
+          $m = Get-Content 'main-v221.js' -Raw
           foreach ($x in @(
-            "require('./main-v218.js')",
-            'runtime-v220.js',
+            "require('./main-v220.js')",
+            'runtime-v221.js',
+            "appendSwitch('autoplay-policy','no-user-gesture-required')",
             "w.setTitle('AFD DJ '+VERSION)"
-          )) { if (-not $m.Contains($x)) { throw "main-v220 marker missing: $x" } }
-          if ($m.Contains("require('./main-v219.js')")) { throw 'v1.5.20 must bypass crashing main-v219 patch layer' }
+          )) { if (-not $m.Contains($x)) { throw "main-v221 marker missing: $x" } }
+          if ($m.Contains("require('./main-v219.js')")) { throw 'v1.5.21 must not load crashing main-v219 directly' }
 
-          $r = Get-Content 'runtime-v220.js' -Raw
+          $r = Get-Content 'runtime-v221.js' -Raw
           foreach ($x in @(
-            'window.__afd220Active=true',
-            'async function reliableYouTubeStart',
-            'performance.now()+10500',
-            "owner(k)==='youtube'?reliableYouTubeStart(k):old(k)",
-            'function installSpotifySeek',
-            's.seekSeconds=',
-            "d?.getElementById('seek'+k)",
-            "r.dispatchEvent(new Event('change'",
-            'function seekOnline',
-            "y.seek?.(k,dur*v/1000)",
-            '.afdClockRange212',
-            "d.addEventListener('input'",
-            "d.addEventListener('pointerup'"
-          )) { if (-not $r.Contains($x)) { throw "runtime-v220 marker missing: $x" } }
-          if ($r.Contains('paintSpotifyClock')) { throw 'runtime-v220 must not own Spotify clock' }
+            'window.__afd221Active=true',
+            'function installDirectYouTubeControls',
+            "new CustomEvent('afd-deck-transport'",
+            "y.play=k=>dispatch(k,'play')",
+            "y.pause=k=>dispatch(k,'pause')",
+            "y.stop=k=>dispatch(k,'stop')",
+            'y.seek=(k,sec)=>',
+            "d.getElementById('seek'+k)",
+            "r.dispatchEvent(new Event('input'"
+          )) { if (-not $r.Contains($x)) { throw "runtime-v221 marker missing: $x" } }
+          if ($r.Contains("querySelector('.deck'+k+' [data-act=\"play\"]")) { throw 'v1.5.21 YouTube play must not use synthetic deck-button clicks' }
+          if ($r.Contains('paintSpotifyClock')) { throw 'runtime-v221 must not own Spotify clock' }
 
           $r212 = Get-Content 'runtime-v212.js' -Raw
           if (-not $r212.Contains("C()?.playIndex?.(+r.dataset.i,{mix:true})")) { throw 'Side View double-click is not routed to playIndex mix:true' }
-          if (-not $r212.Contains('window.AFDSpotifyState?.seekSeconds?.(k,sec)')) { throw 'Online Spotify clock seek hook missing' }
-          if (-not $r212.Contains('window.AFDYouTubeState?.seek?.(k,sec)')) { throw 'Online YouTube clock seek hook missing' }
-          $sp = Get-Content 'spotify-playback-v85-local.js' -Raw
-          if (-not $sp.Contains("getElementById('seek'+deck)")) { throw 'Spotify native seek control missing' }
-          if (-not $sp.Contains('seekDeck(deck,dur*(Number(seek.value)||0)/1000)')) { throw 'Spotify native seek engine missing' }
+          $r206 = Get-Content 'runtime-v206.js' -Raw
+          if (-not $r206.Contains('if(it.afdYouTubeItem||it.youtubeItem)return loadYouTube')) { throw 'Auto Mix YouTube load path missing' }
+          $yt = Get-Content '../inline-youtube-core-v48.js' -Raw
+          if (-not $yt.Contains("if(action==='play')playYT(deck)")) { throw 'Direct YouTube transport event listener missing' }
 
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.5.20') { throw 'package version is not 1.5.20' }
-          if ($pkg.main -ne 'main-v220.js') { throw 'package main is not main-v220.js' }
-          foreach ($f in @('main-v220.js','runtime-v220.js','main-v218.js','runtime-v218.js','main-v217.js','runtime-v217.js','main-v215.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','spotify-playback-v85-local.js')) {
+          if ($pkg.version -ne '1.5.21') { throw 'package version is not 1.5.21' }
+          if ($pkg.main -ne 'main-v221.js') { throw 'package main is not main-v221.js' }
+          foreach ($f in @('main-v221.js','runtime-v221.js','main-v220.js','runtime-v220.js','main-v218.js','runtime-v218.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','spotify-playback-v85-local.js')) {
             if (!(Test-Path $f)) { throw "$f missing" }
           }
-          Write-Host 'AFD v1.5.20 bypasses v219 startup crash, keeps YouTube Side Mix retry, and adds Spotify/YouTube online seek'
+          Write-Host 'AFD v1.5.21 Side View YouTube double-click and manual PLAY use direct player transport instead of recursive button clicks'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
@@ -84,18 +81,18 @@ jobs:
           if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
           node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
-      - name: Verify packaged v1.5.20 files
+      - name: Verify packaged v1.5.21 files
         shell: pwsh
         run: |
           $asar = 'dist/win-unpacked/resources/app.asar'
           if (!(Test-Path $asar)) { throw 'app.asar missing from packaged app' }
           $list = & npx --no-install asar list $asar
           if ($LASTEXITCODE -ne 0) { throw 'Unable to list app.asar' }
-          foreach ($needle in @('main-v220.js','runtime-v220.js','main-v218.js','runtime-v218.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','spotify-playback-v85-local.js','preload.js')) {
+          foreach ($needle in @('main-v221.js','runtime-v221.js','main-v220.js','runtime-v220.js','main-v218.js','runtime-v218.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','spotify-playback-v85-local.js','preload.js')) {
             if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
           }
-          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.20-x64.exe')) { throw 'v1.5.20 installer missing' }
-          Write-Host 'Packaged AFD v1.5.20 contains safe startup, reliable YouTube Side Mix and online seek bridge'
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.21-x64.exe')) { throw 'v1.5.21 installer missing' }
+          Write-Host 'Packaged AFD v1.5.21 contains direct YouTube PLAY transport for Side View Mix and manual deck PLAY'
       - uses: actions/upload-artifact@v4
         with:
           name: AFD-DJ-Windows
