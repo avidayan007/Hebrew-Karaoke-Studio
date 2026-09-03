@@ -1,7 +1,7 @@
 (()=>{
 if(window.__afdWin169){window.__afdWin169.refresh();return;}
 
-const FIXED_CLIENT_ID='d1b255796dbd444995e8f6e29d4ce2cd';
+const DEFAULT_CLIENT_ID='d1b255796dbd444995e8f6e29d4ce2cd';
 const ACCESS_KEY='afdSPAccess169';
 const REFRESH_KEY='afdSPRefresh169';
 const EXPIRES_KEY='afdSPExpires169';
@@ -13,19 +13,22 @@ function status(text){
   if(e)e.textContent=text;
   console.log('[AFD WIN 169]',text);
 }
-function setFixedClient(){
-  try{localStorage.setItem('afdSP',FIXED_CLIENT_ID);}catch(e){}
+function clientId(){
+  try{return String(localStorage.getItem('afdSP')||DEFAULT_CLIENT_ID).trim()||DEFAULT_CLIENT_ID}catch(e){return DEFAULT_CLIENT_ID}
+}
+function restoreClientEditor(){
   const input=document.getElementById('spId');
   if(input){
-    input.value=FIXED_CLIENT_ID;
-    input.readOnly=true;
-    input.title='Spotify Client ID קבוע בגרסת Windows';
+    if(document.activeElement!==input)input.value=String(localStorage.getItem('afdSP')||'');
+    input.readOnly=false;
+    input.removeAttribute('readonly');
+    input.title='Spotify Client ID שלך נשמר במחשב הזה';
   }
   const save=document.getElementById('saveSettings2');
   if(save){
-    save.textContent='Client ID שמור';
-    save.disabled=true;
-    save.title='ה-Client ID כבר מוטמע ב-AFD DJ Windows';
+    save.textContent='שמור';
+    save.disabled=false;
+    save.title='שמור Spotify Client ID';
   }
 }
 function storeTokenPayload(j){
@@ -43,7 +46,7 @@ function storeTokenPayload(j){
   }
 }
 function migrateExisting(){
-  setFixedClient();
+  restoreClientEditor();
   let session='';
   try{session=sessionStorage.getItem('afdSPToken')||'';}catch(e){}
   if(session){
@@ -75,7 +78,7 @@ async function refreshSpotifyToken(force=false){
       method:'POST',
       headers:{'Content-Type':'application/x-www-form-urlencoded'},
       body:new URLSearchParams({
-        client_id:FIXED_CLIENT_ID,
+        client_id:clientId(),
         grant_type:'refresh_token',
         refresh_token:refresh
       })
@@ -131,20 +134,13 @@ window.fetch=async function(input,init){
   return nativeFetch(input,withBearer(init,access));
 };
 
-function neutralizeBadClientStorage(){
-  try{
-    const current=(localStorage.getItem('afdSP')||'').trim();
-    if(current!==FIXED_CLIENT_ID)localStorage.setItem('afdSP',FIXED_CLIENT_ID);
-  }catch(e){}
-}
 function refresh(){
-  neutralizeBadClientStorage();
   migrateExisting();
-  setFixedClient();
+  restoreClientEditor();
   refreshSpotifyToken(false).catch(()=>{});
 }
 
-window.__afdWin169={refresh,refreshSpotifyToken,clientId:FIXED_CLIENT_ID};
+window.__afdWin169={refresh,refreshSpotifyToken,clientId};
 refresh();
 setTimeout(refresh,300);
 setTimeout(refresh,1200);

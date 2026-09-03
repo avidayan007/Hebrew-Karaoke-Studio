@@ -18,13 +18,15 @@ function mountOnline(){
   dock.querySelector('.toolbar')?.style.setProperty('display','none','important');
   dock.querySelector('.tabs')?.style.setProperty('display','none','important');
   dock.querySelector('.tools')?.style.setProperty('display','none','important');
-  ['local','automix','settings'].forEach(id=>{const e=$(id);if(e)e.style.setProperty('display','none','important')});
+  ['local','automix'].forEach(id=>{const e=$(id);if(e)e.style.setProperty('display','none','important')});
   const apple=$('amSearch')?.closest('.card');if(apple)apple.remove();
   let head=$('afdOnlineHead170');
   if(!head){head=document.createElement('div');head.id='afdOnlineHead170';head.textContent='ONLINE MUSIC  •  SPOTIFY  •  YOUTUBE';view.insertAdjacentElement('beforebegin',head)}
   let st=$('afdOuter170Style');if(!st){st=document.createElement('style');st.id='afdOuter170Style';document.head.appendChild(st)}
   st.textContent=`#afdOnlineHead170{height:30px;flex:0 0 30px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid #3b424c;background:linear-gradient(#252b33,#0b0e13);font-size:10px;font-weight:1000;color:#d9c0ff;letter-spacing:.6px}.dock>.view{margin:0!important;border:0!important;border-radius:0!important;flex:1 1 0!important;height:0!important;min-height:0!important}.dock #online{display:grid!important;grid-template-columns:1fr 1fr!important;height:100%!important;min-height:0!important;padding:8px!important;gap:8px!important}.dock #online>.card{min-width:0!important}.dock #amSearch{display:none!important}`;
-  online.style.setProperty('display','grid','important');
+  const settings=$('settings'),showSettings=window.__afdFull203?.mode==='settings';
+  online.style.setProperty('display',showSettings?'none':'grid','important');
+  if(settings)settings.style.setProperty('display',showSettings?'grid':'none','important');
   return true;
 }
 
