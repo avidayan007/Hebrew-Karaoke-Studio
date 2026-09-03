@@ -28,7 +28,7 @@ function patchText(file,s){
     s=rep(
       s,
       "window.AFDOpenYT=searchNow;window.AFDYouTubeState={isPlaying:deck=>!!yt[deck]?.playing,clear:clearYT,load,applyCross,getTime:",
-      "window.AFDOpenYT=searchNow;window.AFDYouTubeState={isPlaying:deck=>!!yt[deck]?.playing,isLoaded:deck=>!!yt[deck],clear:clearYT,load,play:playYT,pause:deck=>pauseYT(deck,false),stop:deck=>pauseYT(deck,true),seek:(deck,sec)=>{const p=players[deck];if(!yt[deck]||!p||yt[deck].blocked)return false;try{p.seekTo(Math.max(0,Number(sec)||0),true);updateDeckTime(deck);return true}catch(e){return false}},getItems:()=>lastItems.slice(),applyCross,getTime:",
+      "window.AFDOpenYT=searchNow;window.AFDYouTubeState={isPlaying:deck=>!!yt[deck]?.playing,isLoaded:deck=>!!yt[deck],clear:clearYT,load,play:playYT,playNow:deck=>{const r=yt[deck],p=players[deck];if(!r||!p||r.blocked)return false;try{p.playVideo();lastLevel[deck]=-1;applyCross();return true}catch(e){status('YouTube PLAY ERROR • '+e.message);return false}},pause:deck=>pauseYT(deck,false),stop:deck=>pauseYT(deck,true),seek:(deck,sec)=>{const p=players[deck];if(!yt[deck]||!p||yt[deck].blocked)return false;try{p.seekTo(Math.max(0,Number(sec)||0),true);updateDeckTime(deck);return true}catch(e){return false}},getItems:()=>lastItems.slice(),applyCross,getTime:",
       'YouTube direct transport and result API'
     );
   }
