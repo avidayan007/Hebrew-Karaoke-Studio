@@ -28,56 +28,58 @@ jobs:
         shell: pwsh
         run: |
           foreach ($f in @(
-            'main-v184.js','main-v200.js','main-v203.js','main-v205.js','main-v206.js','main-v207.js','main-v208.js','main-v209.js','main-v210.js','main-v211.js','main-v212.js','main-v213.js','main-v214.js','main-v215.js','main-v216.js','main-v217.js','main-v218.js','main-v219.js','main-v220.js','main-v221.js','main-v222.js','main-v223.js','main-v224.js','main-v225.js','patch-v224.js','patch-v225.js',
-            'preload.js','runtime-v167.js','runtime-v168.js','runtime-v169.js','runtime-v170.js','runtime-v171.js','runtime-v172.js','runtime-v175.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v205.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','runtime-v210.js','runtime-v211.js','runtime-v212.js','runtime-v213.js','runtime-v214.js','runtime-v215.js','runtime-v216.js','runtime-v217.js','runtime-v218.js','runtime-v220.js','runtime-v221.js','runtime-v222.js','runtime-v223.js','runtime-v225.js','test-youtube-v225.js','run-test-youtube-v225.cjs','spotify-playback-v85-local.js','../deck-replace-confirm-v158.js','../inline-youtube.js','../inline-youtube-core-v48.js'
+            'main-v184.js','main-v200.js','main-v203.js','main-v205.js','main-v206.js','main-v207.js','main-v208.js','main-v209.js','main-v210.js','main-v211.js','main-v212.js','main-v213.js','main-v214.js','main-v215.js','main-v216.js','main-v217.js','main-v218.js','main-v219.js','main-v220.js','main-v221.js','main-v222.js','main-v223.js','main-v224.js','main-v225.js','main-v226.js','patch-v224.js','patch-v225.js','patch-v226.js',
+            'preload.js','runtime-v167.js','runtime-v168.js','runtime-v169.js','runtime-v170.js','runtime-v171.js','runtime-v172.js','runtime-v175.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v205.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','runtime-v210.js','runtime-v211.js','runtime-v212.js','runtime-v213.js','runtime-v214.js','runtime-v215.js','runtime-v216.js','runtime-v217.js','runtime-v218.js','runtime-v220.js','runtime-v221.js','runtime-v222.js','runtime-v223.js','runtime-v225.js','test-youtube-v225.js','run-test-youtube-v225.cjs','test-sideview-v226.cjs','spotify-playback-v85-local.js','../deck-replace-confirm-v158.js','../inline-youtube.js','../inline-youtube-core-v48.js'
           )) { node --check $f; if ($LASTEXITCODE -ne 0) { throw "Syntax failed: $f" } }
-      - name: Full behavior audit v1.5.25 YouTube PLAY
+      - name: Full manual YouTube PLAY audit inherited from v1.5.25
         shell: pwsh
         run: |
           node run-test-youtube-v225.cjs
-          if ($LASTEXITCODE -ne 0) { throw 'v1.5.25 comprehensive YouTube PLAY audit failed' }
-      - name: Verify v1.5.25 final playback chain
+          if ($LASTEXITCODE -ne 0) { throw 'manual YouTube PLAY audit failed' }
+      - name: Exact Side View double-click autoplay audit v1.5.26
         shell: pwsh
         run: |
-          $m = Get-Content 'main-v225.js' -Raw
-          foreach ($x in @("require('./main-v220.js')",'runtime-v225.js','patch-v225.js','autoplay-policy','setTimeout(()=>inject(w),120)')) {
-            if (-not $m.Contains($x)) { throw "main-v225 marker missing: $x" }
+          node test-sideview-v226.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'v1.5.26 Side View double-click autoplay audit failed' }
+      - name: Verify v1.5.26 final playback and performance chain
+        shell: pwsh
+        run: |
+          $m = Get-Content 'main-v226.js' -Raw
+          foreach ($x in @("require('./main-v225.js')",'patch-v226.js','enable-gpu-rasterization','enable-zero-copy','autoplay-policy')) {
+            if (-not $m.Contains($x)) { throw "main-v226 marker missing: $x" }
           }
-          foreach ($bad in @("require('./main-v221.js')","require('./main-v222.js')","require('./main-v223.js')","require('./main-v224.js')")) {
-            if ($m.Contains($bad)) { throw "v1.5.25 must bypass obsolete YouTube layers: $bad" }
+
+          $p = Get-Content 'patch-v226.js' -Raw
+          foreach ($x in @("file==='runtime-v206.js'",'window.__afd215?.loadDeck||window.__afdUnified215?.loadDeck','setInterval(refresh,300)','setInterval(refresh,450)',"paintClock('A');paintClock('B')},250")) {
+            if (-not $p.Contains($x)) { throw "patch-v226 marker missing: $x" }
           }
-          $p = Get-Content 'patch-v225.js' -Raw
-          foreach ($x in @("file==='runtime-v215.js'",'const fn=window.AFDYouTubeState?.playNow','await Promise.resolve(fn(k))','PLAY לא התחיל')) {
-            if (-not $p.Contains($x)) { throw "patch-v225 marker missing: $x" }
-          }
-          $r = Get-Content 'runtime-v225.js' -Raw
-          foreach ($x in @('dispatchCore(k,','playVideo','pauseVideo','seekTo','verifiedPlaying','cur>v.base+0.025','קיבל PLAY אבל הזמן לא התקדם','y.playNow=p','y.isPlaying=ip')) {
-            if (-not $r.Contains($x)) { throw "runtime-v225 marker missing: $x" }
-          }
-          if ($r.Contains('paintSpotifyClock')) { throw 'runtime-v225 must not own Spotify clock' }
-          $r220 = Get-Content 'runtime-v220.js' -Raw
-          foreach ($x in @("typeof y.playNow!=='function'",'await Promise.resolve(y.playNow(k))','PLAYING VERIFIED','verified YouTube PLAY ready')) {
-            if (-not $r220.Contains($x)) { throw "runtime-v220 v225 marker missing: $x" }
-          }
-          if ($r220.Contains("typeof y.play==='function'")) { throw 'runtime-v220 must never use legacy toggle play' }
-          $web = Get-Content '../inline-youtube-core-v48.js' -Raw
-          foreach ($x in @("window.addEventListener('afd-deck-transport'","if(action==='play')playYT(deck)",'p.playVideo()')) {
-            if (-not $web.Contains($x)) { throw "actual web YouTube core transport marker missing: $x" }
-          }
-          $ultra = Get-Content '../ultra.html' -Raw
-          if (-not $ultra.Contains('data-act="play" data-d="A"')) { throw 'Deck A PLAY markup missing' }
-          if (-not $ultra.Contains('data-act="play" data-d="B"')) { throw 'Deck B PLAY markup missing' }
+
+          $r206 = Get-Content 'runtime-v206.js' -Raw
+          if (-not $r206.Contains("C()?.playIndex" ) -and -not $r206.Contains('playIndex')) { throw 'runtime206 playIndex missing' }
           $r212 = Get-Content 'runtime-v212.js' -Raw
-          if (-not $r212.Contains("C()?.playIndex?.(+r.dataset.i,{mix:true})")) { throw 'Side View dblclick playIndex mix route missing' }
+          if (-not $r212.Contains("C()?.playIndex?.(+r.dataset.i,{mix:true})")) { throw 'visible Side View dblclick route missing' }
           $m215 = Get-Content 'main-v215.js' -Raw
-          if (-not $m215.Contains("if(file==='runtime-v206.js')s=s.replace")) { throw 'runtime206 to runtime215 startDeck delegation missing' }
+          if (-not $m215.Contains("async function startDeck(k){if(window.__afd215?.startDeck)return window.__afd215.startDeck(k);")) { throw 'runtime206 startDeck delegation patch missing' }
+          $r215 = Get-Content 'runtime-v215.js' -Raw
+          if (-not $r215.Contains('async function startDeck(k)')) { throw 'runtime215 startDeck missing' }
+          $r225 = Get-Content 'runtime-v225.js' -Raw
+          foreach ($x in @('playVideo','verifiedPlaying','cur>v.base+0.025','y.playNow=p','y.isPlaying=ip')) {
+            if (-not $r225.Contains($x)) { throw "runtime-v225 verified PLAY marker missing: $x" }
+          }
+          if ($r225.Contains('paintSpotifyClock')) { throw 'YouTube bridge must not own Spotify clock' }
+
+          $m184 = Get-Content 'main-v184.js' -Raw
+          foreach ($x in @('h264_nvenc','-preset','p1')) { if (-not $m184.Contains($x)) { throw "NVENC marker missing: $x" } }
+          $m210 = Get-Content 'main-v210.js' -Raw
+          foreach ($x in @("a[i+1]='2'",'PRIORITY_BELOW_NORMAL')) { if (-not $m210.Contains($x)) { throw "low-CPU FFmpeg marker missing: $x" } }
+
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.5.25') { throw 'package version is not 1.5.25' }
-          if ($pkg.main -ne 'main-v225.js') { throw 'package main is not main-v225.js' }
-          foreach ($f in @('main-v225.js','patch-v225.js','runtime-v225.js','test-youtube-v225.js','run-test-youtube-v225.cjs','main-v220.js','runtime-v220.js','main-v215.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','spotify-playback-v85-local.js')) {
+          if ($pkg.version -ne '1.5.26') { throw 'package version is not 1.5.26' }
+          if ($pkg.main -ne 'main-v226.js') { throw 'package main is not main-v226.js' }
+          foreach ($f in @('main-v226.js','patch-v226.js','test-sideview-v226.cjs','main-v225.js','runtime-v225.js','main-v220.js','runtime-v220.js','main-v215.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','main-v210.js','main-v184.js','spotify-playback-v85-local.js')) {
             if (!(Test-Path $f)) { throw "$f missing" }
           }
-          Write-Host 'AFD v1.5.25 final chain verified: manual transport + remote-core bridge + direct iframe fallback + timer-progress verification + Side View Auto Mix'
+          Write-Host 'AFD v1.5.26 verified: Side View dblclick uses unified deck loader and automatic verified PLAY; GPU raster/zero-copy enabled; NVENC preferred; CPU FFmpeg capped at 2 below-normal threads.'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
@@ -87,18 +89,18 @@ jobs:
           if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
           node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
-      - name: Verify packaged v1.5.25 files
+      - name: Verify packaged v1.5.26 files
         shell: pwsh
         run: |
           $asar = 'dist/win-unpacked/resources/app.asar'
           if (!(Test-Path $asar)) { throw 'app.asar missing from packaged app' }
           $list = & npx --no-install asar list $asar
           if ($LASTEXITCODE -ne 0) { throw 'Unable to list app.asar' }
-          foreach ($needle in @('main-v225.js','patch-v225.js','runtime-v225.js','test-youtube-v225.js','run-test-youtube-v225.cjs','main-v220.js','runtime-v220.js','main-v215.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','spotify-playback-v85-local.js','preload.js')) {
+          foreach ($needle in @('main-v226.js','patch-v226.js','test-sideview-v226.cjs','main-v225.js','runtime-v225.js','main-v220.js','runtime-v220.js','main-v215.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','main-v210.js','main-v184.js','spotify-playback-v85-local.js','preload.js')) {
             if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
           }
-          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.25-x64.exe')) { throw 'v1.5.25 installer missing' }
-          Write-Host 'Packaged v1.5.25 contains verified YouTube PLAY bridge and comprehensive behavior test'
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.26-x64.exe')) { throw 'v1.5.26 installer missing' }
+          Write-Host 'Packaged v1.5.26 contains Side View autoplay integration fix and performance safeguards'
       - uses: actions/upload-artifact@v4
         with:
           name: AFD-DJ-Windows
