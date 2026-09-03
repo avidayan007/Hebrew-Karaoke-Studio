@@ -102,7 +102,7 @@ jobs:
             "w.addEventListener('click'",
             'async function localPlay',
             'function clockHost',
-            "id='afdClock212'",
+            "h.id='afdClock212'+k",
             'function paintClock',
             'seekSeconds',
             'function decorateOnline',
@@ -131,7 +131,7 @@ jobs:
           if (-not $yt.Contains('let yt={A:null,B:null},players={A:null,B:null}')) { throw 'YouTube player state target changed' }
 
           $u208 = Get-Content 'runtime-v208.js' -Raw
-          if (-not $u208.Contains("function spSide(){const p=$('afdSP196');")) { throw 'runtime-v208 Spotify SIDE patch target changed' }
+          if (-not $u208.Contains('function spSide(){const p=')) { throw 'runtime-v208 Spotify SIDE patch target changed' }
 
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
           if ($pkg.version -ne '1.5.12') { throw 'package version is not 1.5.12' }
