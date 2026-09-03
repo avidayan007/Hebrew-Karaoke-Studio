@@ -36,6 +36,7 @@ jobs:
           node --check main-v208.js
           node --check main-v209.js
           node --check main-v210.js
+          node --check main-v211.js
           node --check preload.js
           node --check runtime-v167.js
           node --check runtime-v168.js
@@ -55,66 +56,69 @@ jobs:
           node --check runtime-v207.js
           node --check runtime-v208.js
           node --check runtime-v210.js
+          node --check runtime-v211.js
           node --check spotify-playback-v85-local.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
           node --check ../inline-youtube-core-v48.js
-          node --check ../layout-mix-final-v138.js
-          node --check ../automix-order-v159.js
-      - name: Verify v1.5.10 source switch playlist Side View KEY and CPU fixes
+      - name: Verify v1.5.11 single-owner deck and Side View markers
         shell: pwsh
         run: |
-          $m210 = Get-Content 'main-v210.js' -Raw
-          foreach ($m in @(
-            "require('./main-v209.js')",
-            "file==='spotify-playback-v85-local.js'",
-            'Spotify safe source clear',
-            'KEY metadata race',
-            'core queue mutation API',
-            "setInterval(refresh,1000)",
-            'PRIORITY_BELOW_NORMAL',
-            "a[i+1]='2'",
-            "ipcMain.removeHandler('afd-playlist-save')",
-            'version:2',
-            "runtime-v210.js",
-            "w.setTitle('AFD DJ '+VERSION)"
-          )) { if (-not $m210.Contains($m)) { throw "main-v210 marker missing: $m" } }
-          $r210 = Get-Content 'runtime-v210.js' -Raw
-          foreach ($m in @(
-            'window.__afd210',
-            "P2='afdSavedPlaylists210'",
-            'async function saveManual',
-            'async function savedItems',
-            'function prepareSpotify',
-            'function prepareYouTube',
-            'function paintClock',
-            'function youtubeApi',
-            'wmp$/i',
-            'window.__afdWin184?.setTone',
-            '#afd208side .srow [data-load]',
-            '#afd208side .srow [data-play]',
+          $m = Get-Content 'main-v211.js' -Raw
+          foreach ($x in @(
+            "require('./main-v210.js')",
+            "file==='runtime-v206.js'",
+            'window.__afdUnified211?.loadDeck',
+            'window.__afdUnified211?.loadLocal',
+            'window.__afdUnified211?.loadSpotify',
+            'window.__afdUnified211?.loadYouTube',
+            'AFDSpotifyState?.pause',
+            "action:'pause'",
+            "file==='runtime-v208.js'",
+            'if(window.__afd211Active)return',
+            "file==='runtime-v210.js'",
+            '__afd210DisabledBy211',
+            "runtime-v211.js"
+          )) { if (-not $m.Contains($x)) { throw "main-v211 marker missing: $x" } }
+          $r = Get-Content 'runtime-v211.js' -Raw
+          foreach ($x in @(
+            'window.__afd211Active=true',
+            "P='afdSavedPlaylists211'",
+            'async function clearSpotify',
+            'function clearYouTube',
+            'function clearLocal',
+            'async function clearOthers',
+            'function loadDeck',
+            'function loadLocal',
+            'function loadSpotify',
+            'function loadYouTube',
+            'window.__afdUnified211=',
+            'async function saveSide',
+            "id='afd211side'",
+            "id='afd211playlist'",
             "w.addEventListener('dblclick'",
-            'C()?.playIndex?.(i,{mix})',
+            'C()?.playIndex?.(+r.dataset.i,{mix:true})',
+            'C()?.startAuto?.()',
+            'C()?.startNext?.()',
+            'C()?.stopAuto?.()',
             'C()?.moveQueue?.',
-            'C()?.removeQueue?.'
-          )) { if (-not $r210.Contains($m)) { throw "runtime-v210 marker missing: $m" } }
-          if ($r210.Contains('paintSpotifyClock')) { throw 'runtime-v210 must not implement a competing Spotify clock' }
-          $sp = Get-Content 'spotify-playback-v85-local.js' -Raw
-          if (-not $sp.Contains("function clearDeck(deck){loaded[deck]=null")) { throw 'Spotify clear patch target changed' }
-          if (-not $sp.Contains('function paintTime(deck)')) { throw 'Spotify native clock owner missing' }
-          $k = Get-Content 'runtime-v184.js' -Raw
-          if (-not $k.Contains("v.addEventListener('loadedmetadata',()=>resetDeckProcess(k))")) { throw 'KEY metadata patch target changed' }
-          if (-not $k.Contains('function changeTone(k,d){setTone(k,key[k]+d)}')) { throw 'KEY changeTone patch target changed' }
+            'C()?.removeQueue?.',
+            '.sideview>#afd208side{display:none!important}'
+          )) { if (-not $r.Contains($x)) { throw "runtime-v211 marker missing: $x" } }
+          if ($r.Contains('paintSpotifyClock')) { throw 'runtime-v211 must not create a competing Spotify clock' }
           $c = Get-Content 'runtime-v206.js' -Raw
-          if (-not $c.Contains('window.__afdCore206={refresh,addQueue,renderQueue')) { throw 'Core API patch target changed' }
-          if (-not $c.Contains('setInterval(()=>{refresh();autoTick()},420)')) { throw 'Core interval patch target changed' }
+          foreach ($x in @('async function loadAny(k,it){','async function loadLocal(k,it){','async function loadSpotify(k,it){','async function loadYouTube(k,it){',"status('MIX • '+from+' → '+k+' הושלם')")) { if (-not $c.Contains($x)) { throw "runtime-v206 patch target missing: $x" } }
           $u = Get-Content 'runtime-v208.js' -Raw
-          if (-not $u.Contains("setInterval(()=>{refresh();tick()},350)")) { throw 'Unified interval patch target changed' }
+          if (-not $u.Contains('function side(force=false){')) { throw 'runtime-v208 side patch target missing' }
+          $sp = Get-Content 'spotify-playback-v85-local.js' -Raw
+          if (-not $sp.Contains('function paintTime(deck)')) { throw 'Spotify native clock owner missing' }
+          $yt = Get-Content '../inline-youtube-core-v48.js' -Raw
+          if (-not $yt.Contains('window.AFDYouTubeState={isPlaying:deck=>')) { throw 'YouTube deck state API missing' }
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.5.10') { throw 'package version is not 1.5.10' }
-          if ($pkg.main -ne 'main-v210.js') { throw 'package main is not main-v210.js' }
-          foreach ($f in @('main-v210.js','runtime-v210.js','main-v209.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js')) { if (!(Test-Path $f)) { throw "$f missing" } }
-          Write-Host 'AFD v1.5.10 deck source switching, manual playlists, Side View double-click mix, KEY and CPU markers OK'
+          if ($pkg.version -ne '1.5.11') { throw 'package version is not 1.5.11' }
+          if ($pkg.main -ne 'main-v211.js') { throw 'package main is not main-v211.js' }
+          foreach ($f in @('main-v211.js','runtime-v211.js','main-v210.js','runtime-v184.js','runtime-v185.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js')) { if (!(Test-Path $f)) { throw "$f missing" } }
+          Write-Host 'AFD v1.5.11 single-owner deck loading, Side View, playlists and post-fade stop markers OK'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
@@ -124,18 +128,18 @@ jobs:
           if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
           node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
-      - name: Verify packaged v1.5.10 files
+      - name: Verify packaged v1.5.11 files
         shell: pwsh
         run: |
           $asar = 'dist/win-unpacked/resources/app.asar'
           if (!(Test-Path $asar)) { throw 'app.asar missing from packaged app' }
           $list = & npx --no-install asar list $asar
           if ($LASTEXITCODE -ne 0) { throw 'Unable to list app.asar' }
-          foreach ($needle in @('main-v210.js','runtime-v210.js','main-v209.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js','preload.js')) {
+          foreach ($needle in @('main-v211.js','runtime-v211.js','main-v210.js','runtime-v184.js','runtime-v185.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js','preload.js')) {
             if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
           }
-          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.10-x64.exe')) { throw 'v1.5.10 installer missing' }
-          Write-Host 'Packaged AFD v1.5.10 contains source-switch deck repair, online clocks, manual playlist Save, Side View double-click mix, WMP/WMV bridge, HQ KEY repair and lower-priority FFmpeg'
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.11-x64.exe')) { throw 'v1.5.11 installer missing' }
+          Write-Host 'Packaged AFD v1.5.11 contains single-owner deck source switching, independent Side View, manual playlists, Auto Mix and HQ KEY support'
       - uses: actions/upload-artifact@v4
         with:
           name: AFD-DJ-Windows
