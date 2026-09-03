@@ -45,7 +45,7 @@ jobs:
           foreach ($x in @(
             'window.__afd218Active=true',
             'function youtubeFromDOM',
-            '/\\/vi(?:_webp)?\\/([^/?]+)[/?]/i',
+            'thumb.match(',
             "key:'yt218:'",
             'afdYouTubeItem',
             'function addSide',
