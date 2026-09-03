@@ -35,6 +35,7 @@ jobs:
           node --check main-v207.js
           node --check main-v208.js
           node --check main-v209.js
+          node --check main-v210.js
           node --check preload.js
           node --check runtime-v167.js
           node --check runtime-v168.js
@@ -53,67 +54,67 @@ jobs:
           node --check runtime-v206.js
           node --check runtime-v207.js
           node --check runtime-v208.js
+          node --check runtime-v210.js
           node --check spotify-playback-v85-local.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
           node --check ../inline-youtube-core-v48.js
           node --check ../layout-mix-final-v138.js
           node --check ../automix-order-v159.js
-      - name: Verify v1.5.9 startup collision fix and unified markers
+      - name: Verify v1.5.10 source switch playlist Side View KEY and CPU fixes
         shell: pwsh
         run: |
-          $m200 = Get-Content 'main-v200.js' -Raw
-          if (-not $m200.Contains("RUNTIME_UNIFIED_JS=readRuntime('runtime-v194.js')")) { throw 'legacy RUNTIME_UNIFIED_JS marker missing from main-v200' }
-          $m209 = Get-Content 'main-v209.js' -Raw
+          $m210 = Get-Content 'main-v210.js' -Raw
           foreach ($m in @(
-            "RUNTIME_UI208_JS=readRuntime('runtime-v208.js')",
-            'RUNTIME_POST_JS,RUNTIME_UI208_JS',
-            'workstation.html?v=209',
-            'AFD DJ 1.5.9 UNIFIED FIX'
-          )) { if (-not $m209.Contains($m)) { throw "main-v209 marker missing: $m" } }
-          if ($m209.Contains("RUNTIME_UNIFIED_JS=readRuntime('runtime-v208.js')")) { throw 'v1.5.9 must not redeclare legacy RUNTIME_UNIFIED_JS' }
-          $r208 = Get-Content 'runtime-v208.js' -Raw
+            "require('./main-v209.js')",
+            "file==='spotify-playback-v85-local.js'",
+            'Spotify safe source clear',
+            'KEY metadata race',
+            'core queue mutation API',
+            "setInterval(refresh,1000)",
+            'PRIORITY_BELOW_NORMAL',
+            "a[i+1]='2'",
+            "ipcMain.removeHandler('afd-playlist-save')",
+            'version:2',
+            "runtime-v210.js",
+            "w.setTitle('AFD DJ '+VERSION)"
+          )) { if (-not $m210.Contains($m)) { throw "main-v210 marker missing: $m" } }
+          $r210 = Get-Content 'runtime-v210.js' -Raw
           foreach ($m in @(
-            'window.__afd208',
-            "const P0='afdSavedPlaylistFiles177'",
-            "P1='afdSavedPlaylists208'",
-            "H2='afdPlaybackHistory208v1'",
-            "id='afd208content'",
-            "id='afd208side'",
-            "id='afd208online'",
-            '▶ START AUTO',
-            '💾 SAVE',
-            'window.AFDOpenYT',
-            '__afdSpotify196?.open',
-            'C()?.startAuto',
-            'C()?.startNext',
-            'C()?.loadAny',
-            'data-sp-side',
-            'application/x-afd208-side'
-          )) { if (-not $r208.Contains($m)) { throw "runtime-v208 marker missing: $m" } }
-          if ($r208.Contains('paintSpotifyClock')) { throw 'runtime-v208 must not write the Spotify clock' }
-          $r207 = Get-Content 'runtime-v207.js' -Raw
-          if (-not $r207.Contains("const VERSION='__AFD_VERSION__'")) { throw 'dynamic version runtime missing' }
-          $r206 = Get-Content 'runtime-v206.js' -Raw
-          foreach ($m in @(
-            "h.dataset.afdOwner='206'",
-            'afdDeckKey206A',
-            'afdDeckKey206B',
-            '__afdWin184?.changeTone'
-          )) { if (-not $r206.Contains($m)) { throw "runtime-v206 marker missing: $m" } }
-          if ($r206.Contains('paintSpotifyClock')) { throw 'runtime-v206 must not write the Spotify clock' }
-          $r196 = Get-Content 'runtime-v196.js' -Raw
-          if (-not $r196.Contains('client_id:CID()')) { throw 'Spotify login must use saved Client ID' }
-          if (-not $r196.Contains('getItems:()=>items.slice()')) { throw 'Spotify result bridge missing' }
-          $yt = Get-Content '../inline-youtube-core-v48.js' -Raw
-          if (-not $yt.Contains('window.AFDOpenYT=searchNow')) { throw 'YouTube search bridge missing' }
+            'window.__afd210',
+            "P2='afdSavedPlaylists210'",
+            'async function saveManual',
+            'async function savedItems',
+            'function prepareSpotify',
+            'function prepareYouTube',
+            'function paintClock',
+            'function youtubeApi',
+            '/\\.wmp$/i',
+            'window.__afdWin184?.setTone',
+            '#afd208side .srow [data-load]',
+            '#afd208side .srow [data-play]',
+            "w.addEventListener('dblclick'",
+            'C()?.playIndex?.(i,{mix})',
+            'C()?.moveQueue?.',
+            'C()?.removeQueue?.'
+          )) { if (-not $r210.Contains($m)) { throw "runtime-v210 marker missing: $m" } }
+          if ($r210.Contains('paintSpotifyClock')) { throw 'runtime-v210 must not implement a competing Spotify clock' }
           $sp = Get-Content 'spotify-playback-v85-local.js' -Raw
-          if (-not $sp.Contains('function paintTime(deck)')) { throw 'Spotify playback clock owner missing' }
+          if (-not $sp.Contains("function clearDeck(deck){loaded[deck]=null")) { throw 'Spotify clear patch target changed' }
+          if (-not $sp.Contains('function paintTime(deck)')) { throw 'Spotify native clock owner missing' }
+          $k = Get-Content 'runtime-v184.js' -Raw
+          if (-not $k.Contains("v.addEventListener('loadedmetadata',()=>resetDeckProcess(k))")) { throw 'KEY metadata patch target changed' }
+          if (-not $k.Contains('function changeTone(k,d){setTone(k,key[k]+d)}')) { throw 'KEY changeTone patch target changed' }
+          $c = Get-Content 'runtime-v206.js' -Raw
+          if (-not $c.Contains('window.__afdCore206={refresh,addQueue,renderQueue')) { throw 'Core API patch target changed' }
+          if (-not $c.Contains('setInterval(()=>{refresh();autoTick()},420)')) { throw 'Core interval patch target changed' }
+          $u = Get-Content 'runtime-v208.js' -Raw
+          if (-not $u.Contains("setInterval(()=>{refresh();tick()},350)")) { throw 'Unified interval patch target changed' }
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.5.9') { throw 'package version is not 1.5.9' }
-          if ($pkg.main -ne 'main-v209.js') { throw 'package main is not main-v209.js' }
-          foreach ($f in @('main-v209.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js')) { if (!(Test-Path $f)) { throw "$f missing" } }
-          Write-Host 'AFD v1.5.9 startup identifier collision fix + unified Online/Playlist/History/Side View markers OK'
+          if ($pkg.version -ne '1.5.10') { throw 'package version is not 1.5.10' }
+          if ($pkg.main -ne 'main-v210.js') { throw 'package main is not main-v210.js' }
+          foreach ($f in @('main-v210.js','runtime-v210.js','main-v209.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js')) { if (!(Test-Path $f)) { throw "$f missing" } }
+          Write-Host 'AFD v1.5.10 deck source switching, manual playlists, Side View double-click mix, KEY and CPU markers OK'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
@@ -123,18 +124,18 @@ jobs:
           if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
           node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
-      - name: Verify packaged v1.5.9 files
+      - name: Verify packaged v1.5.10 files
         shell: pwsh
         run: |
           $asar = 'dist/win-unpacked/resources/app.asar'
           if (!(Test-Path $asar)) { throw 'app.asar missing from packaged app' }
           $list = & npx --no-install asar list $asar
           if ($LASTEXITCODE -ne 0) { throw 'Unable to list app.asar' }
-          foreach ($needle in @('main-v209.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js','preload.js')) {
+          foreach ($needle in @('main-v210.js','runtime-v210.js','main-v209.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js','preload.js')) {
             if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
           }
-          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.9-x64.exe')) { throw 'v1.5.9 installer missing' }
-          Write-Host 'Packaged AFD v1.5.9 contains startup collision fix, unified Online menu, playlists, daily history, Side View controls, local drag recovery and deck key controls'
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.10-x64.exe')) { throw 'v1.5.10 installer missing' }
+          Write-Host 'Packaged AFD v1.5.10 contains source-switch deck repair, online clocks, manual playlist Save, Side View double-click mix, WMP/WMV bridge, HQ KEY repair and lower-priority FFmpeg'
       - uses: actions/upload-artifact@v4
         with:
           name: AFD-DJ-Windows
