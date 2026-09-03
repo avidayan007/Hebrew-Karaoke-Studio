@@ -28,53 +28,41 @@ jobs:
         shell: pwsh
         run: |
           foreach ($f in @(
-            'main-v184.js','main-v200.js','main-v203.js','main-v205.js','main-v206.js','main-v207.js','main-v208.js','main-v209.js','main-v210.js','main-v211.js','main-v212.js','main-v213.js','main-v214.js','main-v215.js','main-v216.js','main-v217.js','main-v218.js',
+            'main-v184.js','main-v200.js','main-v203.js','main-v205.js','main-v206.js','main-v207.js','main-v208.js','main-v209.js','main-v210.js','main-v211.js','main-v212.js','main-v213.js','main-v214.js','main-v215.js','main-v216.js','main-v217.js','main-v218.js','main-v219.js',
             'preload.js','runtime-v167.js','runtime-v168.js','runtime-v169.js','runtime-v170.js','runtime-v171.js','runtime-v172.js','runtime-v175.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v205.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','runtime-v210.js','runtime-v211.js','runtime-v212.js','runtime-v213.js','runtime-v214.js','runtime-v215.js','runtime-v216.js','runtime-v217.js','runtime-v218.js','spotify-playback-v85-local.js','../deck-replace-confirm-v158.js','../inline-youtube.js','../inline-youtube-core-v48.js'
           )) { node --check $f; if ($LASTEXITCODE -ne 0) { throw "Syntax failed: $f" } }
-      - name: Verify v1.5.18 YouTube direct Side View bridge
+      - name: Verify v1.5.19 YouTube Side double-click Play Mix
         shell: pwsh
         run: |
-          $m = Get-Content 'main-v218.js' -Raw
+          $m = Get-Content 'main-v219.js' -Raw
           foreach ($x in @(
-            "require('./main-v217.js')",
-            "runtime-v218.js",
+            "require('./main-v218.js')",
+            "file==='runtime-v215.js'",
+            'Reliable YouTube Side View Play/Mix',
+            'const end=performance.now()+10000',
+            'while(performance.now()<end)',
+            "window.AFDYouTubeState?.isPlaying?.(k),650",
+            "status('YOUTUBE PLAY • DECK '+k+' • התחיל')",
             "w.setTitle('AFD DJ '+VERSION)"
-          )) { if (-not $m.Contains($x)) { throw "main-v218 marker missing: $x" } }
+          )) { if (-not $m.Contains($x)) { throw "main-v219 marker missing: $x" } }
 
-          $r = Get-Content 'runtime-v218.js' -Raw
-          foreach ($x in @(
-            'window.__afd218Active=true',
-            'function youtubeFromDOM',
-            'thumb.match(',
-            "key:'yt218:'",
-            'afdYouTubeItem',
-            'function addSide',
-            'core.addQueue(item)',
-            "b.dataset.side218",
-            "b.textContent='SIDE +'",
-            "window.addEventListener('click'",
-            "window.addEventListener('dragstart'",
-            'application/x-afd218-online-json',
-            'AFD218:',
-            'function bindInner',
-            '#afd212side,#afd208side,#afdQueue170,.sideview',
-            "w.addEventListener('drop'"
-          )) { if (-not $r.Contains($x)) { throw "runtime-v218 marker missing: $x" } }
-          if ($r.Contains('paintSpotifyClock')) { throw 'runtime-v218 must not own Spotify clock' }
-
-          $core = Get-Content 'runtime-v206.js' -Raw
-          if (-not $core.Contains('function addQueue(it,announce=true)')) { throw 'Active Side View queue API missing' }
-          if (-not $core.Contains('if(it.afdYouTubeItem||it.youtubeItem)return loadYouTube')) { throw 'Auto Mix YouTube load path missing' }
+          $r212 = Get-Content 'runtime-v212.js' -Raw
+          if (-not $r212.Contains("C()?.playIndex?.(+r.dataset.i,{mix:true})")) { throw 'Side View double-click is not routed to playIndex mix:true' }
+          $r206 = Get-Content 'runtime-v206.js' -Raw
+          if (-not $r206.Contains('if(it.afdYouTubeItem||it.youtubeItem)return loadYouTube')) { throw 'Auto Mix YouTube load path missing' }
+          $r215 = Get-Content 'runtime-v215.js' -Raw
+          if (-not $r215.Contains("if(own==='youtube')")) { throw 'YouTube transport owner branch missing' }
+          if (-not $r215.Contains("window.AFDYouTubeState?.isPlaying?.(k),6500")) { throw 'v219 YouTube retry patch target missing' }
           $yt = Get-Content '../inline-youtube-core-v48.js' -Raw
-          if (-not $yt.Contains('thumbnails?.medium?.url')) { throw 'YouTube thumbnail source needed for DOM Video ID fallback is missing' }
+          if (-not $yt.Contains('window.AFDYouTubeState=')) { throw 'YouTube player state API missing' }
 
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.5.18') { throw 'package version is not 1.5.18' }
-          if ($pkg.main -ne 'main-v218.js') { throw 'package main is not main-v218.js' }
-          foreach ($f in @('main-v218.js','runtime-v218.js','main-v217.js','runtime-v217.js','main-v215.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','spotify-playback-v85-local.js')) {
+          if ($pkg.version -ne '1.5.19') { throw 'package version is not 1.5.19' }
+          if ($pkg.main -ne 'main-v219.js') { throw 'package main is not main-v219.js' }
+          foreach ($f in @('main-v219.js','main-v218.js','runtime-v218.js','main-v217.js','runtime-v217.js','main-v215.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','spotify-playback-v85-local.js')) {
             if (!(Test-Path $f)) { throw "$f missing" }
           }
-          Write-Host 'AFD v1.5.18 YouTube SIDE + and drag use DOM Video ID fallback and push directly to active Auto Mix queue'
+          Write-Host 'AFD v1.5.19 Side View double-click keeps playIndex mix flow and retries YouTube Play until the embedded player is ready'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
@@ -84,18 +72,18 @@ jobs:
           if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
           node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
-      - name: Verify packaged v1.5.18 files
+      - name: Verify packaged v1.5.19 files
         shell: pwsh
         run: |
           $asar = 'dist/win-unpacked/resources/app.asar'
           if (!(Test-Path $asar)) { throw 'app.asar missing from packaged app' }
           $list = & npx --no-install asar list $asar
           if ($LASTEXITCODE -ne 0) { throw 'Unable to list app.asar' }
-          foreach ($needle in @('main-v218.js','runtime-v218.js','main-v217.js','runtime-v217.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','spotify-playback-v85-local.js','preload.js')) {
+          foreach ($needle in @('main-v219.js','main-v218.js','runtime-v218.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','spotify-playback-v85-local.js','preload.js')) {
             if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
           }
-          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.18-x64.exe')) { throw 'v1.5.18 installer missing' }
-          Write-Host 'Packaged AFD v1.5.18 contains direct YouTube-to-Side View queue bridge'
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.19-x64.exe')) { throw 'v1.5.19 installer missing' }
+          Write-Host 'Packaged AFD v1.5.19 contains reliable YouTube Side View double-click Play/Mix retry'
       - uses: actions/upload-artifact@v4
         with:
           name: AFD-DJ-Windows
