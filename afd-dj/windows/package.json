@@ -1,8 +1,8 @@
 {
   "name":"afd-dj-windows",
-  "version":"1.5.16",
+  "version":"1.5.17",
   "description":"AFD DJ Windows Desktop",
-  "main":"main-v216.js",
+  "main":"main-v217.js",
   "author":"AFD DJ",
   "license":"UNLICENSED",
   "scripts":{"start":"electron .","dist":"electron-builder --win nsis --publish never"},
