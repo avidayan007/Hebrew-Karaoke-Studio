@@ -55,7 +55,7 @@ jobs:
             "d.getElementById('seek'+k)",
             "r.dispatchEvent(new Event('input'"
           )) { if (-not $r.Contains($x)) { throw "runtime-v221 marker missing: $x" } }
-          if ($r.Contains("querySelector('.deck'+k+' [data-act=\"play\"]")) { throw 'v1.5.21 YouTube play must not use synthetic deck-button clicks' }
+          if ($r.Contains('querySelector')) { throw 'v1.5.21 YouTube play must not use synthetic deck-button clicks' }
           if ($r.Contains('paintSpotifyClock')) { throw 'runtime-v221 must not own Spotify clock' }
 
           $r212 = Get-Content 'runtime-v212.js' -Raw
