@@ -30,6 +30,7 @@ jobs:
           node --check main-v184.js
           node --check main-v200.js
           node --check main-v203.js
+          node --check main-v205.js
           node --check preload.js
           node --check runtime-v167.js
           node --check runtime-v168.js
@@ -43,44 +44,45 @@ jobs:
           node --check runtime-v195.js
           node --check runtime-v196.js
           node --check runtime-v200.js
-          node --check runtime-v201.js
           node --check runtime-v203.js
+          node --check runtime-v205.js
           node --check spotify-playback-v85-local.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
           node --check ../inline-youtube-core-v48.js
           node --check ../layout-mix-final-v138.js
           node --check ../automix-order-v159.js
-      - name: Verify full bootstrap markers
+      - name: Verify v1.5.5 single-controller markers
         shell: pwsh
         run: |
-          $src = Get-Content 'main-v184.js' -Raw
-          $markers = @(
-            "RUNTIME_EJECT_JS=readRuntime('runtime-v175.js');",
-            "RUNTIME_LOAD_JS,RUNTIME_EJECT_JS])await w.webContents.executeJavaScript(js,true)",
-            "w.loadURL('https://afd-dj.vercel.app/workstation.html?v=186&t='+Date.now());",
-            "await session.defaultSession.clearCache().catch(()=>{});"
-          )
-          foreach ($m in $markers) {
-            if (-not $src.Contains($m)) { throw "rescue patch marker missing: $m" }
-          }
-          $m203 = Get-Content 'main-v203.js' -Raw
-          if (-not $m203.Contains("RUNTIME_SPOTIFY_JS,RUNTIME_GUARD_JS,RUNTIME_STABLE_JS,RUNTIME_FULL_JS")) { throw 'full runtime injection order missing' }
-          if ($m203.Contains('RUNTIME_RESCUE_JS')) { throw 'rescue runtime must not be injected by full build' }
-          $r169 = Get-Content 'runtime-v169.js' -Raw
-          if ($r169.Contains("setItem('afdSP',DEFAULT_CLIENT_ID")) { throw 'Spotify Client ID must not be overwritten' }
-          if (-not $r169.Contains('client_id:clientId()')) { throw 'Spotify refresh must use the saved Client ID' }
+          $m205 = Get-Content 'main-v205.js' -Raw
+          foreach ($m in @(
+            "RUNTIME_CONTROLLER_JS=readRuntime('runtime-v205.js')",
+            'RUNTIME_SPOTIFY_JS,RUNTIME_GUARD_JS,RUNTIME_FULL_JS,RUNTIME_CONTROLLER_JS',
+            "workstation.html?v=205",
+            "AFD DJ 1.5.5 STABLE"
+          )) { if (-not $m205.Contains($m)) { throw "main-v205 marker missing: $m" } }
+          $r205 = Get-Content 'runtime-v205.js' -Raw
+          foreach ($m in @(
+            "h.dataset.afdOwner='205'",
+            'AFDWindowsLoadItem',
+            'afdPlaybackHistory192v1',
+            'paintSpotifyClock',
+            '#afdSP196 [data-d]',
+            '#afdDeckKeyA',
+            '#afdDeckKeyB',
+            'afdStartNext205',
+            'application/x-afd-q205'
+          )) { if (-not $r205.Contains($m)) { throw "runtime-v205 marker missing: $m" } }
           $r196 = Get-Content 'runtime-v196.js' -Raw
-          if (-not $r196.Contains('client_id:CID()')) { throw 'Spotify login must use the saved Client ID' }
-          $r203 = Get-Content 'runtime-v203.js' -Raw
-          foreach ($ui in @('ytKey','spId','afdLibTextCtl172','YOUTUBE / SPOTIFY','API & CLIENT ID')) {
-            if (-not $r203.Contains($ui)) { throw "full UI marker missing: $ui" }
-          }
+          if (-not $r196.Contains('client_id:CID()')) { throw 'Spotify login must use saved Client ID' }
+          if (-not $r196.Contains('data-d="A"')) { throw 'Spotify LOAD A button missing' }
+          if (-not $r196.Contains('data-d="B"')) { throw 'Spotify LOAD B button missing' }
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.5.4') { throw 'package version is not 1.5.4' }
-          if ($pkg.main -ne 'main-v203.js') { throw 'package main is not main-v203.js' }
-          foreach ($f in @('runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v201.js','runtime-v203.js','spotify-playback-v85-local.js')) { if (!(Test-Path $f)) { throw "$f missing" } }
-          Write-Host 'AFD full v1.5.4 markers OK'
+          if ($pkg.version -ne '1.5.5') { throw 'package version is not 1.5.5' }
+          if ($pkg.main -ne 'main-v205.js') { throw 'package main is not main-v205.js' }
+          foreach ($f in @('main-v205.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v205.js','spotify-playback-v85-local.js')) { if (!(Test-Path $f)) { throw "$f missing" } }
+          Write-Host 'AFD v1.5.5 single-controller markers OK'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
@@ -90,18 +92,18 @@ jobs:
           if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
           node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
-      - name: Verify packaged full files
+      - name: Verify packaged v1.5.5 files
         shell: pwsh
         run: |
           $asar = 'dist/win-unpacked/resources/app.asar'
           if (!(Test-Path $asar)) { throw 'app.asar missing from packaged app' }
           $list = & npx --no-install asar list $asar
           if ($LASTEXITCODE -ne 0) { throw 'Unable to list app.asar' }
-          foreach ($needle in @('main-v203.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v201.js','runtime-v203.js','spotify-playback-v85-local.js','preload.js')) {
+          foreach ($needle in @('main-v205.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v205.js','spotify-playback-v85-local.js','preload.js')) {
             if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
           }
-          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.4-x64.exe')) { throw 'v1.5.4 installer missing' }
-          Write-Host 'Packaged app.asar contains full runtime, settings, library controls and local Spotify runtime'
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.5-x64.exe')) { throw 'v1.5.5 installer missing' }
+          Write-Host 'Packaged AFD v1.5.5 contains the single controller, Spotify playback and deck key runtime'
       - uses: actions/upload-artifact@v4
         with:
           name: AFD-DJ-Windows
