@@ -14,7 +14,7 @@ patch(
 "for(const js of [RUNTIME_BASE_JS,RUNTIME_FIX_JS,RUNTIME_PERSIST_JS,RUNTIME_LIBRARY_JS,RUNTIME_LIBRARY_FIX_JS,RUNTIME_TEXT_SCROLL_JS,RUNTIME_KEY_JS,RUNTIME_MEDIA_PLAYLIST_JS,RUNTIME_LOAD_JS,RUNTIME_EJECT_JS])await w.webContents.executeJavaScript(js,true)",
 "for(const js of [RUNTIME_BASE_JS,RUNTIME_KEY_JS,RUNTIME_LOAD_JS,RUNTIME_EJECT_JS,RUNTIME_CORE_JS,SPOTIFY_PLAYBACK_LOCAL_JS,RUNTIME_SPOTIFY_JS,RUNTIME_RESCUE_JS])await w.webContents.executeJavaScript(js,true)",
 'inject order');
-patch("title:'AFD DJ'","title:'AFD DJ 1.5.2 RESCUE'",'window title');
+patch("title:'AFD DJ'","title:'AFD DJ 1.5.3 RESCUE'",'window title');
 patch("w.loadURL('https://afd-dj.vercel.app/workstation.html?v=186&t='+Date.now());","w.loadURL('https://afd-dj.vercel.app/workstation.html?v=202&t='+Date.now());",'shell version');
 patch(
 "await session.defaultSession.clearCache().catch(()=>{});",

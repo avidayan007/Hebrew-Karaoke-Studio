@@ -42,6 +42,7 @@ jobs:
           node --check ../inline-youtube.js
           node --check ../inline-youtube-core-v48.js
           node --check ../layout-mix-final-v138.js
+          node --check ../automix-order-v159.js
       - name: Verify rescue bootstrap markers
         shell: pwsh
         run: |
@@ -58,10 +59,10 @@ jobs:
           $m202 = Get-Content 'main-v202.js' -Raw
           if (-not $m202.Contains("RUNTIME_BASE_JS,RUNTIME_KEY_JS,RUNTIME_LOAD_JS,RUNTIME_EJECT_JS,RUNTIME_CORE_JS,SPOTIFY_PLAYBACK_LOCAL_JS,RUNTIME_SPOTIFY_JS,RUNTIME_RESCUE_JS")) { throw 'clean rescue injection order missing' }
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.5.2') { throw 'package version is not 1.5.2' }
+          if ($pkg.version -ne '1.5.3') { throw 'package version is not 1.5.3' }
           if ($pkg.main -ne 'main-v202.js') { throw 'package main is not main-v202.js' }
           foreach ($f in @('runtime-v195.js','runtime-v196.js','runtime-v202.js','spotify-playback-v85-local.js')) { if (!(Test-Path $f)) { throw "$f missing" } }
-          Write-Host 'AFD rescue v1.5.2 markers OK'
+          Write-Host 'AFD rescue v1.5.3 markers OK'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
@@ -81,7 +82,7 @@ jobs:
           foreach ($needle in @('main-v202.js','runtime-v202.js','runtime-v195.js','runtime-v196.js','spotify-playback-v85-local.js','preload.js')) {
             if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
           }
-          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.2-x64.exe')) { throw 'v1.5.2 installer missing' }
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.3-x64.exe')) { throw 'v1.5.3 installer missing' }
           Write-Host 'Packaged app.asar contains rescue core and local Spotify runtime'
       - uses: actions/upload-artifact@v4
         with:
