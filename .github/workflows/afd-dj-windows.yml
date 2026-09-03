@@ -41,7 +41,7 @@ jobs:
         run: |
           node test-sideview-v226.cjs
           if ($LASTEXITCODE -ne 0) { throw 'YouTube Side View double-click autoplay audit failed' }
-      - name: 80-cycle Local playback and all-source regression audit v1.5.27
+      - name: Repeated Local and all-source playback regression audit v1.5.27
         shell: pwsh
         run: |
           node test-local-v227.cjs
@@ -61,7 +61,7 @@ jobs:
           if (-not $p.Contains("getElementById('ytDeck'+k)")) { throw 'strict YouTube loaded marker missing' }
 
           $t = Get-Content 'test-local-v227.cjs' -Raw
-          foreach ($x in @('for(let i=0;i<80;i++)','stale forever','manual Deck A PLAY click','Spotify regression','Side View Local double-click')) {
+          foreach ($x in @('A-first','Local-after-Spotify','manual Deck A PLAY click','Spotify must regain ownership','Side View Local double-click pass')) {
             if (-not $t.Contains($x)) { throw "Local regression test marker missing: $x" }
           }
 
@@ -90,7 +90,7 @@ jobs:
           foreach ($f in @('main-v227.js','patch-v227.js','test-local-v227.cjs','main-v226.js','patch-v226.js','test-sideview-v226.cjs','main-v225.js','runtime-v225.js','main-v220.js','runtime-v220.js','main-v215.js','runtime-v215.js','runtime-v212.js','runtime-v206.js','runtime-v185.js','main-v210.js','main-v184.js','spotify-playback-v85-local.js')) {
             if (!(Test-Path $f)) { throw "$f missing" }
           }
-          Write-Host 'AFD v1.5.27 verified: Local ownership survives stale YouTube iframe state; Local PLAY retries and verifies; Side View autoplay preserved; YouTube and Spotify regressions pass; GPU/NVENC and low-CPU safeguards preserved.'
+          Write-Host 'AFD v1.5.27 verified: repeated Local direct/manual/Side View playback; Spotify-Local transitions; stale YouTube ownership protection; YouTube autoplay regressions; GPU/NVENC and low-CPU safeguards preserved.'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
