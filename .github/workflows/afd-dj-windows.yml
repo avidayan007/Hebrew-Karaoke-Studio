@@ -34,6 +34,7 @@ jobs:
           node --check main-v206.js
           node --check main-v207.js
           node --check main-v208.js
+          node --check main-v209.js
           node --check preload.js
           node --check runtime-v167.js
           node --check runtime-v168.js
@@ -58,15 +59,19 @@ jobs:
           node --check ../inline-youtube-core-v48.js
           node --check ../layout-mix-final-v138.js
           node --check ../automix-order-v159.js
-      - name: Verify v1.5.8 unified controller markers
+      - name: Verify v1.5.9 startup collision fix and unified markers
         shell: pwsh
         run: |
-          $m208 = Get-Content 'main-v208.js' -Raw
+          $m200 = Get-Content 'main-v200.js' -Raw
+          if (-not $m200.Contains("RUNTIME_UNIFIED_JS=readRuntime('runtime-v194.js')")) { throw 'legacy RUNTIME_UNIFIED_JS marker missing from main-v200' }
+          $m209 = Get-Content 'main-v209.js' -Raw
           foreach ($m in @(
-            "RUNTIME_UNIFIED_JS=readRuntime('runtime-v208.js')",
-            'workstation.html?v=208',
-            'AFD DJ 1.5.8 UNIFIED'
-          )) { if (-not $m208.Contains($m)) { throw "main-v208 marker missing: $m" } }
+            "RUNTIME_UI208_JS=readRuntime('runtime-v208.js')",
+            'RUNTIME_POST_JS,RUNTIME_UI208_JS',
+            'workstation.html?v=209',
+            'AFD DJ 1.5.9 UNIFIED FIX'
+          )) { if (-not $m209.Contains($m)) { throw "main-v209 marker missing: $m" } }
+          if ($m209.Contains("RUNTIME_UNIFIED_JS=readRuntime('runtime-v208.js')")) { throw 'v1.5.9 must not redeclare legacy RUNTIME_UNIFIED_JS' }
           $r208 = Get-Content 'runtime-v208.js' -Raw
           foreach ($m in @(
             'window.__afd208',
@@ -105,10 +110,10 @@ jobs:
           $sp = Get-Content 'spotify-playback-v85-local.js' -Raw
           if (-not $sp.Contains('function paintTime(deck)')) { throw 'Spotify playback clock owner missing' }
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.5.8') { throw 'package version is not 1.5.8' }
-          if ($pkg.main -ne 'main-v208.js') { throw 'package main is not main-v208.js' }
-          foreach ($f in @('main-v208.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js')) { if (!(Test-Path $f)) { throw "$f missing" } }
-          Write-Host 'AFD v1.5.8 unified online, playlist, history and Side View markers OK'
+          if ($pkg.version -ne '1.5.9') { throw 'package version is not 1.5.9' }
+          if ($pkg.main -ne 'main-v209.js') { throw 'package main is not main-v209.js' }
+          foreach ($f in @('main-v209.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js')) { if (!(Test-Path $f)) { throw "$f missing" } }
+          Write-Host 'AFD v1.5.9 startup identifier collision fix + unified Online/Playlist/History/Side View markers OK'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
@@ -118,18 +123,18 @@ jobs:
           if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
           node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
-      - name: Verify packaged v1.5.8 files
+      - name: Verify packaged v1.5.9 files
         shell: pwsh
         run: |
           $asar = 'dist/win-unpacked/resources/app.asar'
           if (!(Test-Path $asar)) { throw 'app.asar missing from packaged app' }
           $list = & npx --no-install asar list $asar
           if ($LASTEXITCODE -ne 0) { throw 'Unable to list app.asar' }
-          foreach ($needle in @('main-v208.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js','preload.js')) {
+          foreach ($needle in @('main-v209.js','runtime-v169.js','runtime-v170.js','runtime-v172.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','spotify-playback-v85-local.js','preload.js')) {
             if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
           }
-          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.8-x64.exe')) { throw 'v1.5.8 installer missing' }
-          Write-Host 'Packaged AFD v1.5.8 contains unified Online menu, playlists, daily history, Side View controls, local drag recovery and deck key controls'
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.9-x64.exe')) { throw 'v1.5.9 installer missing' }
+          Write-Host 'Packaged AFD v1.5.9 contains startup collision fix, unified Online menu, playlists, daily history, Side View controls, local drag recovery and deck key controls'
       - uses: actions/upload-artifact@v4
         with:
           name: AFD-DJ-Windows
