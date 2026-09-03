@@ -28,63 +28,58 @@ jobs:
         shell: pwsh
         run: |
           foreach ($f in @(
-            'main-v184.js','main-v200.js','main-v203.js','main-v205.js','main-v206.js','main-v207.js','main-v208.js','main-v209.js','main-v210.js','main-v211.js','main-v212.js','main-v213.js','main-v214.js','main-v215.js','main-v216.js',
-            'preload.js','runtime-v167.js','runtime-v168.js','runtime-v169.js','runtime-v170.js','runtime-v171.js','runtime-v172.js','runtime-v175.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v205.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','runtime-v210.js','runtime-v211.js','runtime-v212.js','runtime-v213.js','runtime-v214.js','runtime-v215.js','runtime-v216.js','spotify-playback-v85-local.js','../deck-replace-confirm-v158.js','../inline-youtube.js','../inline-youtube-core-v48.js'
+            'main-v184.js','main-v200.js','main-v203.js','main-v205.js','main-v206.js','main-v207.js','main-v208.js','main-v209.js','main-v210.js','main-v211.js','main-v212.js','main-v213.js','main-v214.js','main-v215.js','main-v216.js','main-v217.js',
+            'preload.js','runtime-v167.js','runtime-v168.js','runtime-v169.js','runtime-v170.js','runtime-v171.js','runtime-v172.js','runtime-v175.js','runtime-v184.js','runtime-v185.js','runtime-v195.js','runtime-v196.js','runtime-v200.js','runtime-v203.js','runtime-v205.js','runtime-v206.js','runtime-v207.js','runtime-v208.js','runtime-v210.js','runtime-v211.js','runtime-v212.js','runtime-v213.js','runtime-v214.js','runtime-v215.js','runtime-v216.js','runtime-v217.js','spotify-playback-v85-local.js','../deck-replace-confirm-v158.js','../inline-youtube.js','../inline-youtube-core-v48.js'
           )) { node --check $f; if ($LASTEXITCODE -ne 0) { throw "Syntax failed: $f" } }
-      - name: Verify v1.5.16 online browse and drag markers
+      - name: Verify v1.5.17 YouTube Side View and Spotify SIDE-only markers
         shell: pwsh
         run: |
-          $m = Get-Content 'main-v216.js' -Raw
+          $m = Get-Content 'main-v217.js' -Raw
           foreach ($x in @(
-            "require('./main-v215.js')",
+            "require('./main-v216.js')",
             "file==='runtime-v196.js'",
-            "u.searchParams.set('limit','30')",
+            'data-side217="spotify"',
             "file==='inline-youtube-core-v48.js'",
-            "maxResults:'50'",
-            "runtime-v216.js",
+            'data-side217="youtube"',
+            'getItems:()=>lastItems.slice()',
+            'isLoaded:deck=>!!yt[deck]',
+            'runtime-v217.js',
             "w.setTitle('AFD DJ '+VERSION)"
-          )) { if (-not $m.Contains($x)) { throw "main-v216 marker missing: $x" } }
+          )) { if (-not $m.Contains($x)) { throw "main-v217 marker missing: $x" } }
 
-          $r = Get-Content 'runtime-v216.js' -Raw
+          $r = Get-Content 'runtime-v217.js' -Raw
           foreach ($x in @(
-            'window.__afd216Active=true',
-            "afdYTView216",
-            'function ensureYTTools',
-            'GRID',
-            'LIST',
-            "application/x-afd216-online-json",
-            "text/plain",
-            "AFD216:",
-            'function unpack',
-            'function bindInner',
-            "#afd212side,#afd208side,#afdQueue170,.sideview",
+            'window.__afd217Active=true',
+            'function rowData',
+            'window.AFDYouTubeState?.getItem?.(n)',
             'function addSide',
-            "window.__afdUnified215?.loadDeck",
-            "#afdSP196 [data-d],#afdYTInlineResults [data-d]{display:none!important}",
-            'minmax(112px,1fr)',
-            'width:82px!important',
-            'minmax(132px,1fr)',
-            'height:76px!important'
-          )) { if (-not $r.Contains($x)) { throw "runtime-v216 marker missing: $x" } }
-          if ($r.Contains('paintSpotifyClock')) { throw 'runtime-v216 must not reintroduce Spotify clock ownership' }
+            'core.addQueue(x)',
+            'function normalizeButtons',
+            "row.querySelectorAll('[data-d]').forEach(b=>b.remove())",
+            "b.textContent='SIDE +'",
+            'application/x-afd217-online-json',
+            'AFD217:',
+            'function bindInner',
+            '#afd212side,#afd208side,#afdQueue170,.sideview',
+            "window.__afdUnified215?.loadDeck"
+          )) { if (-not $r.Contains($x)) { throw "runtime-v217 marker missing: $x" } }
+          if ($r.Contains('paintSpotifyClock')) { throw 'runtime-v217 must not own Spotify clock' }
 
           $sp = Get-Content 'runtime-v196.js' -Raw
-          if (-not $sp.Contains("u.searchParams.set('type','track');")) { throw 'Spotify search patch target missing' }
-          if (-not $sp.Contains('sp196pager')) { throw 'Spotify pager missing' }
+          if (-not $sp.Contains('<div class="sp196acts"><button data-d="A">LOAD A</button><button data-d="B">LOAD B</button></div>')) { throw 'Spotify card A/B patch target missing' }
+          if (-not $sp.Contains('<button data-d="A">A</button><button data-d="B">B</button></div>')) { throw 'Spotify list A/B patch target missing' }
           $yt = Get-Content '../inline-youtube-core-v48.js' -Raw
-          if (-not $yt.Contains("maxResults:'25'")) { throw 'YouTube result-count patch target missing' }
-          if (-not $yt.Contains('window.AFDYouTubeState=')) { throw 'YouTube state API missing' }
-          $r215 = Get-Content 'runtime-v215.js' -Raw
-          if (-not $r215.Contains('data-side215')) { throw 'Online Side View action missing from v215' }
-          if (-not $r215.Contains('window.__afdUnified215=api')) { throw 'v215 unified loader missing' }
+          if (-not $yt.Contains('grid-template-columns:58px 1fr 48px 48px')) { throw 'YouTube A/B grid patch target missing' }
+          if (-not $yt.Contains('</div><button data-d="A">A</button><button data-d="B">B</button></div>')) { throw 'YouTube A/B button patch target missing' }
+          if (-not $yt.Contains('window.AFDYouTubeState={isPlaying:deck=>!!yt[deck]?.playing,clear:clearYT,load,applyCross,getTime:')) { throw 'YouTube state API patch target missing' }
 
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.5.16') { throw 'package version is not 1.5.16' }
-          if ($pkg.main -ne 'main-v216.js') { throw 'package main is not main-v216.js' }
-          foreach ($f in @('main-v216.js','runtime-v216.js','main-v215.js','runtime-v215.js','main-v212.js','runtime-v212.js','runtime-v196.js','runtime-v206.js','spotify-playback-v85-local.js')) {
+          if ($pkg.version -ne '1.5.17') { throw 'package version is not 1.5.17' }
+          if ($pkg.main -ne 'main-v217.js') { throw 'package main is not main-v217.js' }
+          foreach ($f in @('main-v217.js','runtime-v217.js','main-v216.js','runtime-v216.js','main-v215.js','runtime-v215.js','runtime-v196.js','runtime-v206.js','spotify-playback-v85-local.js')) {
             if (!(Test-Path $f)) { throw "$f missing" }
           }
-          Write-Host 'AFD v1.5.16 Spotify 30/page, YouTube 50/grid/list, no A/B result buttons and robust cross-frame Side View drag markers OK'
+          Write-Host 'AFD v1.5.17 YouTube exposes result objects to SIDE, cross-frame drag is serialized, and Spotify result buttons are SIDE-only'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
@@ -94,18 +89,18 @@ jobs:
           if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
           node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
-      - name: Verify packaged v1.5.16 files
+      - name: Verify packaged v1.5.17 files
         shell: pwsh
         run: |
           $asar = 'dist/win-unpacked/resources/app.asar'
           if (!(Test-Path $asar)) { throw 'app.asar missing from packaged app' }
           $list = & npx --no-install asar list $asar
           if ($LASTEXITCODE -ne 0) { throw 'Unable to list app.asar' }
-          foreach ($needle in @('main-v216.js','runtime-v216.js','main-v215.js','runtime-v215.js','runtime-v196.js','runtime-v206.js','spotify-playback-v85-local.js','preload.js')) {
+          foreach ($needle in @('main-v217.js','runtime-v217.js','main-v216.js','runtime-v216.js','main-v215.js','runtime-v215.js','runtime-v196.js','runtime-v206.js','spotify-playback-v85-local.js','preload.js')) {
             if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
           }
-          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.16-x64.exe')) { throw 'v1.5.16 installer missing' }
-          Write-Host 'Packaged AFD v1.5.16 contains expanded Spotify paging, full YouTube grid/list and robust Online-to-Side drag'
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.17-x64.exe')) { throw 'v1.5.17 installer missing' }
+          Write-Host 'Packaged AFD v1.5.17 contains working YouTube SIDE +/drag bridge and Spotify SIDE-only search controls'
       - uses: actions/upload-artifact@v4
         with:
           name: AFD-DJ-Windows
