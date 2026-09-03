@@ -13,10 +13,11 @@ async function reliableYouTubeStart(k){
  const y=window.AFDYouTubeState;
  if(!y){status('YOUTUBE PLAY ERROR • מנוע YouTube לא זמין');return false}
  if(y.isPlaying?.(k))return true;
+ if(typeof y.playNow!=='function'){status('YOUTUBE PLAY ERROR • playNow לא נטען');return false}
  const end=performance.now()+10500;let attempt=0,lastErr='';
  while(performance.now()<end){
   attempt++;
-  try{if(typeof y.play==='function')await Promise.resolve(y.play(k));else window.dispatchEvent(new CustomEvent('afd-deck-transport',{detail:{deck:k,action:'play'}}))}catch(e){lastErr=String(e?.message||e||'')}
+  try{await Promise.resolve(y.playNow(k))}catch(e){lastErr=String(e?.message||e||'')}
   const until=performance.now()+720;
   while(performance.now()<until){if(y.isPlaying?.(k)){status('YOUTUBE PLAY • DECK '+k+' • התחיל');return true}const t=y.getTime?.(k)||{};if(t.blocked){status('YOUTUBE • הסרטון חסום לניגון בתוך האפליקציה');return false}await sleep(80)}
   await sleep(Math.min(480,120+attempt*35));
@@ -26,7 +27,7 @@ async function reliableYouTubeStart(k){
 function patchStartDeck(){
  const api=window.__afd215||window.__afdUnified215;if(!api||api===patchedApi||typeof api.startDeck!=='function')return;
  const old=api.startDeck.bind(api);api.startDeck=async k=>owner(k)==='youtube'?reliableYouTubeStart(k):old(k);patchedApi=api;
- status('AFD 1.5.20 • YouTube Mix Play ready')
+ status('AFD 1.5.24 • YouTube playNow Auto Mix ready')
 }
 function installSpotifySeek(){
  const s=window.AFDSpotifyState;if(!s||typeof s.seekSeconds==='function')return;
