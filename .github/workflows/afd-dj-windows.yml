@@ -39,6 +39,7 @@ jobs:
           node --check main-v211.js
           node --check main-v212.js
           node --check main-v213.js
+          node --check main-v214.js
           node --check preload.js
           node --check runtime-v167.js
           node --check runtime-v168.js
@@ -61,80 +62,70 @@ jobs:
           node --check runtime-v211.js
           node --check runtime-v212.js
           node --check runtime-v213.js
+          node --check runtime-v214.js
           node --check spotify-playback-v85-local.js
           node --check ../deck-replace-confirm-v158.js
           node --check ../inline-youtube.js
           node --check ../inline-youtube-core-v48.js
-      - name: Verify v1.5.13 YouTube BPM pitch KEY jump and Save markers
+      - name: Verify v1.5.14 playlist replace YouTube drag Save and transport UI markers
         shell: pwsh
         run: |
-          $m = Get-Content 'main-v213.js' -Raw
+          $m = Get-Content 'main-v214.js' -Raw
           foreach ($x in @(
-            "require('./main-v212.js')",
+            "require('./main-v213.js')",
             "file==='runtime-v212.js'",
-            "window.__afd213?.saveSide",
-            "file==='runtime-v184.js'",
-            'window.__afdUnified213?.getOwner',
-            "file==='inline-youtube-core-v48.js'",
-            'window.__afd213Active?null:captureOther(deck)',
+            'window.__afd214?.saveSide',
+            'window.__afdUnified214?.loadDeck',
+            'window.__afdUnified214?.loadYouTube',
+            "file==='runtime-v213.js'",
             "ipcMain.removeHandler('afd-playlist-save')",
-            "ipcMain.handle('afd-playlist-save',save213)",
-            'version:3',
-            "runtime-v213.js",
+            "ipcMain.handle('afd-playlist-save',save214)",
+            'version:4',
+            "runtime-v214.js",
             "w.setTitle('AFD DJ '+VERSION)"
-          )) { if (-not $m.Contains($x)) { throw "main-v213 marker missing: $x" } }
+          )) { if (-not $m.Contains($x)) { throw "main-v214 marker missing: $x" } }
 
-          $r = Get-Content 'runtime-v213.js' -Raw
+          $r = Get-Content 'runtime-v214.js' -Raw
           foreach ($x in @(
-            'window.__afd213Active=true',
-            'async function doYouTube',
-            'async function clearSpotify',
-            'function clearYouTube',
-            'function clearLocal',
-            'function loadDeck',
-            'function loadSpotify',
-            'function loadYouTube',
-            'function loadLocal',
-            "#afdYTInlineResults [data-d]",
-            "#afdSP196 [data-d]",
-            'function scheduleBpm',
-            'analyzeBpmPath',
-            'analyzeBpm',
-            "e.id='bpm'+k",
-            'function setPitchUI',
-            'v.preservesPitch=true',
-            'v.webkitPreservesPitch=true',
-            'function keyChange',
-            'window.__afdWin184',
-            'api.setTone',
+            'window.__afd214Active=true',
+            'async function hardClear',
+            'AFDWindowsLoadState?.cancel?.(k)',
+            'async function replaceDeck',
+            'async function replaceYouTube',
+            'async function replaceLocal',
+            "#afdYTInlineResults .afdYTListRow[data-i]",
+            'application/x-afd214-youtube',
+            "w.addEventListener('drop'",
             'async function saveSide',
-            "bridge?.savePlaylistV213||bridge?.savePlaylist",
-            'window.__afdUnified213=api',
-            'window.__afdUnified212=api',
-            'window.__afdUnified211=api'
-          )) { if (-not $r.Contains($x)) { throw "runtime-v213 marker missing: $x" } }
-          if ($r.Contains('paintSpotifyClock')) { throw 'runtime-v213 must not reintroduce legacy Spotify clock' }
+            'window.afdDesktopMedia?.savePlaylist',
+            "key='afdSavedPlaylists212'",
+            'height:54px!important',
+            'margin-top:6px!important',
+            'window.__afdUnified214=api',
+            'window.__afdUnified213=api'
+          )) { if (-not $r.Contains($x)) { throw "runtime-v214 marker missing: $x" } }
+          if ($r.Contains('paintSpotifyClock')) { throw 'runtime-v214 must not reintroduce legacy Spotify clock' }
 
           $r212 = Get-Content 'runtime-v212.js' -Raw
-          if (-not $r212.Contains("else if(x==='save')saveSide();")) { throw 'runtime-v212 Save delegation target changed' }
-          $r184 = Get-Content 'runtime-v184.js' -Raw
-          if (-not $r184.Contains("function online(k){return!!(doc?.getElementById('ytDeck'+k)||doc?.getElementById('afdSP105Deck'+k))}")) { throw 'runtime-v184 online target changed' }
-          $yt = Get-Content '../inline-youtube-core-v48.js' -Raw
-          if (-not $yt.Contains('const other=captureOther(deck);clearYT(deck);')) { throw 'YouTube other-deck restore target changed' }
-          if (-not $yt.Contains('window.AFDYouTubeState={isPlaying:deck=>')) { throw 'YouTube direct state API target missing' }
-          $sp = Get-Content 'spotify-playback-v85-local.js' -Raw
-          if (-not $sp.Contains('function paintTime(deck)')) { throw 'Spotify clock source missing' }
-          $pre = Get-Content 'preload.js' -Raw
-          if (-not $pre.Contains('analyzeBpmPath:meta=>analyzePath')) { throw 'BPM preload bridge missing' }
-          if (-not $pre.Contains("savePlaylist:payload=>ipcRenderer.invoke('afd-playlist-save',payload)")) { throw 'Playlist preload bridge missing' }
+          foreach ($x in @(
+            "else if(x==='save')saveSide();",
+            'if(b)loadDeck(b.dataset.d,x);',
+            'if(x)loadDeck(freeDeck(),x)',
+            "if(deck)loadDeck(deck.classList.contains('deckA')?'A':'B',dragItem);",
+            'loadDeck(b.dataset.d,spQueueItem(it));',
+            'loadDeck(b.dataset.d,ytQueueItem(it));'
+          )) { if (-not $r212.Contains($x)) { throw "runtime-v212 v214 patch target missing: $x" } }
+
+          $r213 = Get-Content 'runtime-v213.js' -Raw
+          foreach ($x in @('loadYouTube(y.dataset.d,it)','loadSpotify(s.dataset.d,it)')) { if (-not $r213.Contains($x)) { throw "runtime-v213 v214 patch target missing: $x" } }
 
           $pkg = Get-Content 'package.json' -Raw | ConvertFrom-Json
-          if ($pkg.version -ne '1.5.13') { throw 'package version is not 1.5.13' }
-          if ($pkg.main -ne 'main-v213.js') { throw 'package main is not main-v213.js' }
-          foreach ($f in @('main-v213.js','runtime-v213.js','main-v212.js','runtime-v212.js','main-v210.js','runtime-v184.js','runtime-v185.js','runtime-v196.js','runtime-v206.js','spotify-playback-v85-local.js')) {
+          if ($pkg.version -ne '1.5.14') { throw 'package version is not 1.5.14' }
+          if ($pkg.main -ne 'main-v214.js') { throw 'package main is not main-v214.js' }
+          foreach ($f in @('main-v214.js','runtime-v214.js','main-v213.js','runtime-v213.js','main-v212.js','runtime-v212.js','runtime-v184.js','runtime-v185.js','runtime-v206.js','spotify-playback-v85-local.js')) {
             if (!(Test-Path $f)) { throw "$f missing" }
           }
-          Write-Host 'AFD v1.5.13 YouTube source replacement, dynamic BPM, precise pitch, HQ KEY, no-other-deck restore and Save markers OK'
+          Write-Host 'AFD v1.5.14 Playlist occupied-deck replace, YouTube drag, Save and transport button sizing markers OK'
       - run: npm install
       - name: Verify audio engines
         shell: pwsh
@@ -144,18 +135,18 @@ jobs:
           if (!(Test-Path 'node_modules/music-tempo')) { throw 'music-tempo Beatroot runtime missing' }
           node -e "const m=require('music-tempo');const MT=m.default||m;if(typeof MT!=='function')throw Error('music-tempo export invalid');console.log('music-tempo Beatroot OK')"
       - run: npm run dist
-      - name: Verify packaged v1.5.13 files
+      - name: Verify packaged v1.5.14 files
         shell: pwsh
         run: |
           $asar = 'dist/win-unpacked/resources/app.asar'
           if (!(Test-Path $asar)) { throw 'app.asar missing from packaged app' }
           $list = & npx --no-install asar list $asar
           if ($LASTEXITCODE -ne 0) { throw 'Unable to list app.asar' }
-          foreach ($needle in @('main-v213.js','runtime-v213.js','main-v212.js','runtime-v212.js','main-v210.js','runtime-v184.js','runtime-v185.js','runtime-v196.js','runtime-v206.js','spotify-playback-v85-local.js','preload.js')) {
+          foreach ($needle in @('main-v214.js','runtime-v214.js','main-v213.js','runtime-v213.js','main-v212.js','runtime-v212.js','runtime-v184.js','runtime-v185.js','runtime-v206.js','spotify-playback-v85-local.js','preload.js')) {
             if (-not (($list -join "`n").Contains($needle))) { throw "Packaged app missing $needle" }
           }
-          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.13-x64.exe')) { throw 'v1.5.13 installer missing' }
-          Write-Host 'Packaged AFD v1.5.13 contains YouTube deck replacement repair, BPM/pitch/key controls, Save dialog repair and no-other-deck restore loading'
+          if (!(Test-Path 'dist/AFD-DJ-Windows-Setup-1.5.14-x64.exe')) { throw 'v1.5.14 installer missing' }
+          Write-Host 'Packaged AFD v1.5.14 contains reliable YouTube drag, occupied Deck replacement, Playlist Save repair and larger transport controls'
       - uses: actions/upload-artifact@v4
         with:
           name: AFD-DJ-Windows
