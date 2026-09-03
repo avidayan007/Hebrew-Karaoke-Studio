@@ -89,7 +89,7 @@ jobs:
             'function prepareYouTube',
             'function paintClock',
             'function youtubeApi',
-            '/\\.wmp$/i',
+            'wmp$/i',
             'window.__afdWin184?.setTone',
             '#afd208side .srow [data-load]',
             '#afd208side .srow [data-play]',
