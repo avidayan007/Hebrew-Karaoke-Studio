@@ -10,6 +10,7 @@ on:
       - 'app.js'
       - 'patch-v*.js'
       - 'manifest.webmanifest'
+      - 'sw.js'
       - '.github/workflows/windows-desktop.yml'
 
 concurrency:
@@ -32,6 +33,10 @@ jobs:
       - name: Install desktop dependencies
         working-directory: desktop
         run: npm install
+
+      - name: Verify complete web/iPad/iPhone feature set
+        working-directory: desktop
+        run: npm run prepare:app
 
       - name: Download FFmpeg with NVIDIA NVENC support
         shell: pwsh
@@ -66,7 +71,7 @@ jobs:
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Avi-Karaoke-Studio-Windows-v1.129
+          name: Avi-Karaoke-Studio-Windows-v1.130
           path: |
             desktop/dist/*.exe
             desktop/dist/SHA256.txt
