@@ -1,0 +1,74 @@
+name: Build Windows Desktop App
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'index.html'
+      - 'app.js'
+      - 'patch-v*.js'
+      - 'manifest.webmanifest'
+      - '.github/workflows/windows-desktop.yml'
+
+concurrency:
+  group: windows-desktop-main
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm install
+
+      - name: Download FFmpeg with NVIDIA NVENC support
+        shell: pwsh
+        run: |
+          $headers = @{ 'User-Agent' = 'Avi-Karaoke-Studio-Build' }
+          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest' -Headers $headers
+          $asset = $release.assets | Where-Object { $_.name -eq 'ffmpeg-master-latest-win64-gpl.zip' } | Select-Object -First 1
+          if (-not $asset) { $asset = $release.assets | Where-Object { $_.name -match 'win64-gpl\.zip$' } | Select-Object -First 1 }
+          if (-not $asset) { throw 'Could not find Windows GPL FFmpeg build.' }
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile 'ffmpeg.zip' -Headers $headers
+          Expand-Archive -Path 'ffmpeg.zip' -DestinationPath 'ffmpeg-build' -Force
+          $exe = Get-ChildItem 'ffmpeg-build' -Recurse -Filter 'ffmpeg.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'ffmpeg.exe was not found after extraction.' }
+          New-Item -ItemType Directory -Force -Path 'desktop/ffmpeg' | Out-Null
+          Copy-Item $exe.FullName 'desktop/ffmpeg/ffmpeg.exe' -Force
+          & 'desktop/ffmpeg/ffmpeg.exe' -hide_banner -encoders 2>&1 | Select-String 'h264_nvenc' | Out-Host
+
+      - name: Build Windows installer
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist:win
+
+      - name: Create SHA256 checksum
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem 'desktop/dist' -Filter '*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Installer was not created.' }
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash
+          "$hash  $($installer.Name)" | Set-Content 'desktop/dist/SHA256.txt'
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Avi-Karaoke-Studio-Windows-v1.129
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/SHA256.txt
+          if-no-files-found: error
+          retention-days: 30
