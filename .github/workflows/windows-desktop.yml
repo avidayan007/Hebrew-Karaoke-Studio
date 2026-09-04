@@ -38,6 +38,15 @@ jobs:
         working-directory: desktop
         run: npm run prepare:app
 
+      - name: Runtime parity test and actual Windows UI screenshot
+        shell: pwsh
+        working-directory: desktop
+        env:
+          AVI_PREVIEW_PATH: ${{ github.workspace }}\desktop\preview-windows-v1.130.png
+        run: |
+          npx electron runtime-check.cjs
+          if (-not (Test-Path 'preview-windows-v1.130.png')) { throw 'Windows UI preview was not created.' }
+
       - name: Download FFmpeg with NVIDIA NVENC support
         shell: pwsh
         run: |
@@ -75,5 +84,6 @@ jobs:
           path: |
             desktop/dist/*.exe
             desktop/dist/SHA256.txt
+            desktop/preview-windows-v1.130.png
           if-no-files-found: error
           retention-days: 30
