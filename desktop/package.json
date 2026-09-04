@@ -1,0 +1,46 @@
+{
+  "name": "avi-karaoke-studio-desktop",
+  "version": "1.129.0",
+  "private": true,
+  "description": "Avi Karaoke Studio for Windows with native FFmpeg rendering",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "npm run prepare:app && electron .",
+    "prepare:app": "node prepare-web.cjs",
+    "dist:win": "npm run prepare:app && electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "37.2.6",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "com.avidayan.karaokestudio",
+    "productName": "Avi Karaoke Studio",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "app/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "ffmpeg/ffmpeg.exe",
+        "to": "ffmpeg/ffmpeg.exe"
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "Avi-Karaoke-Studio-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Avi Karaoke Studio"
+    }
+  }
+}
