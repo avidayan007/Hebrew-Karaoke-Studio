@@ -1,8 +1,8 @@
 {
   "name": "avi-karaoke-studio-desktop",
-  "version": "1.129.0",
+  "version": "1.130.0",
   "private": true,
-  "description": "Avi Karaoke Studio for Windows with native FFmpeg rendering",
+  "description": "Avi Karaoke Studio for Windows with full web v1.128 feature parity and native FFmpeg rendering",
   "main": "main.cjs",
   "scripts": {
     "start": "npm run prepare:app && electron .",
@@ -17,30 +17,10 @@
     "appId": "com.avidayan.karaokestudio",
     "productName": "Avi Karaoke Studio",
     "asar": true,
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "main.cjs",
-      "preload.cjs",
-      "app/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "ffmpeg/ffmpeg.exe",
-        "to": "ffmpeg/ffmpeg.exe"
-      }
-    ],
-    "win": {
-      "target": ["nsis"],
-      "artifactName": "Avi-Karaoke-Studio-Setup-${version}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Avi Karaoke Studio"
-    }
+    "directories": {"output": "dist"},
+    "files": ["main.cjs","preload.cjs","app/**/*"],
+    "extraResources": [{"from":"ffmpeg/ffmpeg.exe","to":"ffmpeg/ffmpeg.exe"}],
+    "win": {"target":["nsis"],"artifactName":"Avi-Karaoke-Studio-Setup-${version}.${ext}"},
+    "nsis": {"oneClick":false,"allowToChangeInstallationDirectory":true,"createDesktopShortcut":true,"createStartMenuShortcut":true,"shortcutName":"Avi Karaoke Studio"}
   }
 }
