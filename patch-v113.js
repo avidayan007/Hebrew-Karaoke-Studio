@@ -1,16 +1,42 @@
-// Avi Karaoke Studio Web v1.113 — arm cursor only; erase forward sync only when sync playback starts; title until first sync
+// Avi Karaoke Studio Web v1.113 — arm cursor only; marker drags stay editable; title until first sync
 (function(){
   const canvas=document.getElementById('hksSyncWaveCanvas'),audio=document.getElementById('audio'),preview=document.getElementById('lyricsPreview');
   if(!canvas||!audio)return;
-  let armedTime=null;
+  let armedTime=null,markerGesture=false;
   const timed=w=>w&&w.time!=null&&Number.isFinite(Number(w.time));
+
+  function nearMarker(clientX){
+    try{
+      const r=canvas.getBoundingClientRect(),dur=Number(audio.duration)||Number(audioBuffer?.duration)||0;
+      if(!dur||!Array.isArray(words))return false;
+      let best=22;
+      for(const w of words){
+        if(!timed(w))continue;
+        const x=r.left+(Number(w.time)/dur)*r.width;
+        const d=Math.abs(clientX-x);
+        if(d<=best)return true;
+      }
+    }catch(_){}
+    return false;
+  }
 
   function arm(){
     armedTime=Number(audio.currentTime)||0;
     try{setStatus('נקודת חזרה נבחרה — הסנכרון עדיין לא נמחק. לחץ נגן לסנכרון כדי להתחיל מחדש מהנקודה הזאת.')}catch(_){}
   }
-  // Capture after v56 has moved the audio cursor. DO NOT erase anything here.
-  canvas.addEventListener('pointerup',()=>setTimeout(arm,0),true);
+
+  // A drag that starts on an existing orange marker is an EDIT, not a resync seek.
+  canvas.addEventListener('pointerdown',e=>{markerGesture=nearMarker(e.clientX)},true);
+  canvas.addEventListener('pointerup',()=>{
+    const wasMarker=markerGesture;markerGesture=false;
+    if(wasMarker){
+      armedTime=null;
+      setTimeout(()=>{try{window.__hksDrawSyncWave?.();setStatus('נקודת הסנכרון הוזזה. אפשר להמשיך לערוך או לנגן.')}catch(_){}},0);
+      return;
+    }
+    setTimeout(arm,0);
+  },true);
+  canvas.addEventListener('pointercancel',()=>{markerGesture=false},true);
 
   function beginResync(){
     if(armedTime==null)return;
