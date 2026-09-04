@@ -12,5 +12,13 @@
       "type": "image/png",
       "purpose": "any"
     }
+  ],
+  "file_handlers": [
+    {
+      "action": "./?open=project",
+      "accept": {
+        "application/octet-stream": [".karaoke-project", ".avikaraoke"]
+      }
+    }
   ]
 }
