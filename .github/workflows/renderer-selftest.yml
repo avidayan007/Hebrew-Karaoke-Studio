@@ -49,7 +49,7 @@ jobs:
           if(version.version!==155)throw Error('version.json is not 155');
           if(!sw.includes("CACHE='hks-v155'")||!sw.includes("patch-v155.js?v=155"))throw Error('v155 service worker missing');
           if(!index.includes('patch-v30.js?v=155')||!index.includes('Web v1.155 — טוען'))throw Error('v155 app shell missing');
-          for(const marker of ['__hksExportComposerParity155','hksRenderStage155','__hksExportComposerMetrics155','makeOverlayBlob','מה שאתה רואה כאן = מה שיוצא בקובץ','lyricsPx:state.lyricsPx/720','titlePx:state.titlePx/720'])if(!p.includes(marker))throw Error('v155 export preview marker missing: '+marker);
+          for(const marker of ['__hksExportComposerParity155','hksRenderStage155','__hksExportComposerMetrics155','makeOverlayBlob','מה שאתה רואה כאן = מה שיוצא בקובץ','fontH:state.lyricsPx/720','fontH:state.titlePx/720'])if(!p.includes(marker))throw Error('v155 export preview marker missing: '+marker);
           if(!selftest.includes('register-service-worker-v155')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v155 renderer self-test wiring missing');
           console.log('v1.155 wiring OK');
           NODE
