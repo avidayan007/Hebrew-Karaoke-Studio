@@ -1,4 +1,4 @@
-// Avi Karaoke Studio Web v1.144 — smart update checker (no self-update loop)
+// Avi Karaoke Studio Web v1.144 — smart update checker, v1.145 performance hotfix
 (function(){
   if(window.aviDesktop?.isDesktop)return;
   const $=s=>document.querySelector(s);
@@ -24,7 +24,7 @@
   }
   function restore(btn,text='רענן עדכון'){
     window.__hksHardUpdating138=false;
-    if(btn){btn.disabled=false;btn.textContent=text}
+    if(btn){btn.disabled=false;if(btn.textContent!==text)btn.textContent=text}
   }
 
   async function hardUpdate(btn){
@@ -36,9 +36,7 @@
       try{setStatus('בודק אם קיימת גרסה חדשה…')}catch(_){}
       const latest=await latestVersion();
       if(!latest){restore(btn);try{setStatus('לא הצלחתי לבדוק עדכון כרגע. נסה שוב בעוד רגע.')}catch(_){};return}
-
       if(latest<=running){
-        // Already current: never clear caches or reload the page.
         try{
           const wanted=`hks-v${running}`;
           if(await pingSW()!==wanted){
@@ -49,7 +47,6 @@
         try{setStatus(`אתה כבר בגרסה האחרונה — v1.${running}.`)}catch(_){}
         return;
       }
-
       const target=latest,sw=`hks-v${target}`;
       if(btn)btn.textContent=`מעדכן ל-v1.${target}…`;
       try{setStatus(`נמצאה גרסה חדשה v1.${target} — מעדכן…`)}catch(_){}
@@ -71,7 +68,8 @@
     btn.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();hardUpdate(btn)},true);
     return btn;
   }
-  bindUpdateButton();new MutationObserver(bindUpdateButton).observe(document.documentElement,{subtree:true,childList:true});
+  bindUpdateButton();[100,400,1200].forEach(ms=>setTimeout(bindUpdateButton,ms));
+  // v1.145: no permanent document-wide MutationObserver. The update button is bound once with short retries.
   window.__hksHardUpdate138=()=>hardUpdate(bindUpdateButton());
   const ver=$('.version');if(ver&&Number(window.__hksLoaderVersion||0)<138)ver.textContent='Web v1.138';
 })();
