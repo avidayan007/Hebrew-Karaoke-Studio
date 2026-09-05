@@ -73,7 +73,7 @@ jobs:
             const result=await page.evaluate(()=>{
               const audio=document.getElementById('audio');
               Object.defineProperty(audio,'duration',{value:100,configurable:true});
-              audio.currentTime=50;
+              Object.defineProperty(audio,'currentTime',{value:50,writable:true,configurable:true});
               const calls=[];
               window.__hksWaveView125={zoom:10,pan:0,view(){return{start:0,end:10,span:10}},set(z,p){this.zoom=z;this.pan=p;calls.push({z,p})}};
               window.__hksWaveFollow149Api.update();
