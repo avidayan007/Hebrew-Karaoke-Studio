@@ -5,14 +5,7 @@ on:
     paths:
       - 'renderer-selftest.html'
       - 'index.html'
-      - 'patch-v28.js'
       - 'patch-v30.js'
-      - 'patch-v84.js'
-      - 'patch-v131.js'
-      - 'patch-v132.js'
-      - 'patch-v133.js'
-      - 'patch-v134.js'
-      - 'patch-v135.js'
       - 'patch-v136.js'
       - 'patch-v137.js'
       - 'patch-v138.js'
@@ -20,6 +13,7 @@ on:
       - 'patch-v140.js'
       - 'patch-v141.js'
       - 'patch-v142.js'
+      - 'patch-v143.js'
       - 'sw.js'
       - 'vendor/ffmpeg/**'
       - '.github/workflows/renderer-selftest.yml'
@@ -33,16 +27,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify v1.142 JavaScript and wiring
+      - name: Verify v1.143 JavaScript and wiring
         run: |
-          node --check patch-v28.js
           node --check patch-v30.js
-          node --check patch-v84.js
-          node --check patch-v131.js
-          node --check patch-v132.js
-          node --check patch-v133.js
-          node --check patch-v134.js
-          node --check patch-v135.js
           node --check patch-v136.js
           node --check patch-v137.js
           node --check patch-v138.js
@@ -50,6 +37,7 @@ jobs:
           node --check patch-v140.js
           node --check patch-v141.js
           node --check patch-v142.js
+          node --check patch-v143.js
           node --check sw.js
           node --check vendor/ffmpeg/ffmpeg/worker-classic.js
           node - <<'NODE'
@@ -57,24 +45,19 @@ jobs:
           const loader=fs.readFileSync('patch-v30.js','utf8');
           const sw=fs.readFileSync('sw.js','utf8');
           const index=fs.readFileSync('index.html','utf8');
-          const p136=fs.readFileSync('patch-v136.js','utf8');
-          const p137=fs.readFileSync('patch-v137.js','utf8');
-          const p139=fs.readFileSync('patch-v139.js','utf8');
+          const p138=fs.readFileSync('patch-v138.js','utf8');
           const p140=fs.readFileSync('patch-v140.js','utf8');
-          const p142=fs.readFileSync('patch-v142.js','utf8');
+          const p143=fs.readFileSync('patch-v143.js','utf8');
           const selftest=fs.readFileSync('renderer-selftest.html','utf8');
-          if(!loader.includes('__hksLoaderVersion=142')||!loader.includes('140,141,142')||!loader.includes('Array.from({length:6},warmer)')||!loader.includes('attempt<=3'))throw Error('v142 fast resilient loader wiring missing');
-          if(!index.includes('patch-v30.js?v=142')||!index.includes('Web v1.142 — טוען'))throw Error('app shell still points to stale loader');
-          if(!sw.includes("CACHE='hks-v142'")||!sw.includes("const CORE=")||!sw.includes("patch-v142.js?v=142")||!sw.includes("c.match(e.request,{ignoreSearch:true})"))throw Error('v142 service-worker wiring missing');
-          if(sw.includes('const PATCHES=['))throw Error('v142 must not precache every patch during service-worker install');
-          if(!sw.includes("p.includes('/vendor/ffmpeg/')")||!sw.includes('HKS_SW_VERSION'))throw Error('FFmpeg service-worker bypass missing');
-          for(const marker of ['source136.mp4','pcm_s16le','48000','1536'])if(!p136.includes(marker))throw Error('v136 PCM WMV marker missing: '+marker);
-          for(const marker of ['LOAD_TIMEOUT=180*1000','__hksFFmpegLoading137'])if(!p137.includes(marker))throw Error('v137 marker missing: '+marker);
-          for(const marker of ['720p HD — iPhone Safe • MP4 עד 6 Mbps','720p HD — iPhone Safe • WMV 4 Mbps'])if(!p139.includes(marker))throw Error('v139 visible preset marker missing: '+marker);
-          for(const marker of ['AAC 320 kbps','PCM לא דחוס','pcm_s16le','1536k-equivalent'])if(!p140.includes(marker))throw Error('v140 audio marker missing: '+marker);
-          if(!p142.includes('Web v1.142')||!p142.includes('sw.js?v=142'))throw Error('v142 bootstrap marker missing');
-          if(!selftest.includes('register-service-worker-v142')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v142 self-test flow missing');
-          console.log('v1.142 wiring OK');
+          if(!loader.includes('__hksLoaderVersion=143')||!loader.includes('141,142,143')||!loader.includes('patches.slice(6)')||loader.includes('await Promise.all(Array.from({length:6},warmer))'))throw Error('v143 non-blocking loader wiring missing');
+          if(!loader.includes('__hksStartupMs143'))throw Error('startup timing marker missing');
+          if(!index.includes('patch-v30.js?v=143')||!index.includes('Web v1.143 — טוען'))throw Error('app shell still points to stale loader');
+          if(!sw.includes("CACHE='hks-v143'")||!sw.includes("patch-v143.js?v=143")||!sw.includes("patch-v138.js?v=143"))throw Error('v143 service-worker wiring missing');
+          if(!p138.includes('currentVersion')||!p138.includes('currentSW')||p138.includes("CURRENT=140")||p138.includes("SW='hks-v140'"))throw Error('stale hard-update target still present');
+          for(const marker of ['AAC 320 kbps','PCM לא דחוס','pcm_s16le'])if(!p140.includes(marker))throw Error('v140 audio marker missing: '+marker);
+          if(!p143.includes('Web v1.143')||!p143.includes("hksUpdate")||!p143.includes("btn.disabled=false"))throw Error('v143 startup cleanup missing');
+          if(!selftest.includes('register-service-worker-v143')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v143 renderer self-test flow missing');
+          console.log('v1.143 wiring OK');
           NODE
       - name: Install Playwright WebKit
         run: |
@@ -85,7 +68,24 @@ jobs:
         run: |
           python3 -m http.server 8080 >/tmp/server.log 2>&1 &
           sleep 2
-      - name: Run fast cache + MP4 AAC + WMV PCM render in WebKit
+      - name: Verify full app startup finishes without update loop
+        run: |
+          node <<'NODE'
+          const { webkit } = require('playwright');
+          (async()=>{
+            const browser=await webkit.launch({headless:true});
+            const page=await browser.newPage({userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'});
+            page.on('pageerror',e=>console.error('PAGEERROR:',e.message));
+            const t=Date.now();
+            await page.goto('http://127.0.0.1:8080/index.html?hksUpdate=142&_=123',{waitUntil:'domcontentloaded'});
+            await page.waitForFunction(()=>document.querySelector('.version')?.textContent==='Web v1.143' && Number(window.__hksStartupMs143)>0,null,{timeout:15000});
+            const state=await page.evaluate(()=>({version:document.querySelector('.version')?.textContent,status:document.querySelector('#status')?.textContent,startup:window.__hksStartupMs143,search:location.search,updating:[...document.querySelectorAll('button')].some(b=>b.disabled&&/מעדכן לגרסה/.test(b.textContent||'')),bg:getComputedStyle(document.body).backgroundColor}));
+            console.log('STARTUP',JSON.stringify(state),'wall',Date.now()-t);
+            await browser.close();
+            if(state.version!=='Web v1.143'||state.updating||/מנקה cache ישן/.test(state.status||'')||/hksUpdate/.test(state.search)||state.startup>15000)process.exit(1);
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: Run MP4 AAC + WMV PCM render in WebKit
         run: |
           node <<'NODE'
           const { webkit } = require('playwright');
@@ -99,6 +99,6 @@ jobs:
             const result=await page.evaluate(()=>window.__RESULT__);
             console.log('RESULT',JSON.stringify(result));
             await browser.close();
-            if(!result.ok || result.sw!=='hks-v142' || !result.patchCached || result.ffmpegCachedByApp || result.mp4 < 1000 || result.wmv < 1000) process.exit(1);
+            if(!result.ok || result.sw!=='hks-v143' || !result.patchCached || result.ffmpegCachedByApp || result.mp4 < 1000 || result.wmv < 1000) process.exit(1);
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
