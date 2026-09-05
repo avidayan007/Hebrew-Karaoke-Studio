@@ -2,6 +2,17 @@
 (function(){
   const studio=document.getElementById('studio');
   if(!studio)return;
+  const isiOS=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(isiOS){
+    document.body.style.removeProperty('zoom');
+    document.body.style.removeProperty('width');
+    document.body.style.removeProperty('max-width');
+    document.documentElement.style.removeProperty('overflow-x');
+    studio.style.removeProperty('max-width');
+    studio.style.removeProperty('width');
+    window.__hksWideLayout117={fillWidth:()=>{}};
+    return;
+  }
   function fillWidth(){
     const z=Math.max(.01,Number(document.body.style.zoom)||1);
     document.body.style.width=(100/z)+'%';
