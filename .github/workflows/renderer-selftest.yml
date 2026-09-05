@@ -14,6 +14,7 @@ on:
       - 'patch-v135.js'
       - 'patch-v136.js'
       - 'patch-v137.js'
+      - 'patch-v138.js'
       - 'sw.js'
       - 'vendor/ffmpeg/**'
       - '.github/workflows/renderer-selftest.yml'
@@ -27,7 +28,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify v1.137 JavaScript and wiring
+      - name: Verify v1.138 JavaScript and wiring
         run: |
           node --check patch-v28.js
           node --check patch-v30.js
@@ -39,24 +40,29 @@ jobs:
           node --check patch-v135.js
           node --check patch-v136.js
           node --check patch-v137.js
+          node --check patch-v138.js
           node --check sw.js
           node --check vendor/ffmpeg/ffmpeg/worker-classic.js
           node - <<'NODE'
           const fs=require('fs');
           const loader=fs.readFileSync('patch-v30.js','utf8');
           const sw=fs.readFileSync('sw.js','utf8');
+          const p133=fs.readFileSync('patch-v133.js','utf8');
           const p135=fs.readFileSync('patch-v135.js','utf8');
           const p136=fs.readFileSync('patch-v136.js','utf8');
           const p137=fs.readFileSync('patch-v137.js','utf8');
+          const p138=fs.readFileSync('patch-v138.js','utf8');
           const selftest=fs.readFileSync('renderer-selftest.html','utf8');
-          if(!loader.includes('135,136,137')||!loader.includes('?v=137'))throw Error('v137 loader wiring missing');
-          if(!sw.includes("CACHE='hks-v137'")||!sw.includes(',135,136,137]')||!sw.includes('patch-v${n}.js?v=137'))throw Error('v137 service-worker wiring missing');
-          if(!sw.includes("p.includes('/vendor/ffmpeg/')")||!sw.includes('HKS_SW_VERSION'))throw Error('v137 FFmpeg service-worker bypass missing');
+          if(!loader.includes('__hksLoaderVersion=138')||!loader.includes('136,137,138')||!loader.includes('?v=138'))throw Error('v138 loader wiring missing');
+          if(!sw.includes("CACHE='hks-v138'")||!sw.includes(',136,137,138]')||!sw.includes('patch-v${n}.js?v=138'))throw Error('v138 service-worker wiring missing');
+          if(!sw.includes("p.includes('/vendor/ffmpeg/')")||!sw.includes('HKS_SW_VERSION'))throw Error('v138 FFmpeg service-worker bypass missing');
+          if(!p133.includes('__hksRecovery138')||!p133.includes('[134,135,136,137,138]'))throw Error('stale v133 recovery missing');
           for(const marker of ['safe720','zerolatency','__hksLastFFmpegError135'])if(!p135.includes(marker))throw Error('v135 stable renderer marker missing: '+marker);
           for(const marker of ['storedMp4','source136.mp4',"videoK=mode==='safe720'?'4M'",'__hksRender136'])if(!p136.includes(marker))throw Error('v136 WMV marker missing: '+marker);
           for(const marker of ['hks-v137','LOAD_TIMEOUT=180*1000','__hksFFmpegLoading137','__hksExportEstimate137'])if(!p137.includes(marker))throw Error('v137 marker missing: '+marker);
-          if(!selftest.includes('register-service-worker-v137')||!selftest.includes('render-mp4-720p-zerolatency')||!selftest.includes('render-wmv-from-mp4-720p')||!selftest.includes('ffmpegCachedByApp'))throw Error('v137 self-test flow missing');
-          console.log('v1.137 wiring OK');
+          for(const marker of ['hks-v138','__hksHardUpdating138','hksUpdate'])if(!p138.includes(marker))throw Error('v138 update recovery marker missing: '+marker);
+          if(!selftest.includes('register-service-worker-v138')||!selftest.includes('render-mp4-720p-zerolatency')||!selftest.includes('render-wmv-from-mp4-720p')||!selftest.includes('ffmpegCachedByApp'))throw Error('v138 self-test flow missing');
+          console.log('v1.138 wiring OK');
           NODE
       - name: Install Playwright WebKit
         run: |
@@ -81,6 +87,6 @@ jobs:
             const result=await page.evaluate(()=>window.__RESULT__);
             console.log('RESULT',JSON.stringify(result));
             await browser.close();
-            if(!result.ok || result.sw!=='hks-v137' || result.ffmpegCachedByApp || result.mp4 < 1000 || result.wmv < 1000) process.exit(1);
+            if(!result.ok || result.sw!=='hks-v138' || result.ffmpegCachedByApp || result.mp4 < 1000 || result.wmv < 1000) process.exit(1);
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
