@@ -1,10 +1,10 @@
-<!doctype html><meta charset="utf-8"><title>Renderer self-test v135</title><pre id="out">starting</pre><script type="module">
+<!doctype html><meta charset="utf-8"><title>Renderer self-test v136</title><pre id="out">starting</pre><script type="module">
 const out=document.getElementById('out');const log=s=>{out.textContent+='\n'+s;console.log(s)};
 window.__RESULT__={done:false,ok:false,error:null,mp4:0,wmv:0};
 const timeout=(p,ms,msg)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error(msg)),ms))]);
 async function png(label){const c=document.createElement('canvas');c.width=1280;c.height=720;const x=c.getContext('2d');x.clearRect(0,0,1280,720);x.fillStyle='rgba(0,0,0,.01)';x.fillRect(0,0,1280,720);x.font='bold 72px Arial';x.textAlign='center';x.fillStyle='white';x.strokeStyle='black';x.lineWidth=8;x.strokeText(label,640,380);x.fillText(label,640,380);return new Uint8Array(await (await new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(Error('png failed')),'image/png'))).arrayBuffer())}
 try{
-  const {FFmpeg}=await import('./vendor/ffmpeg/ffmpeg/ios.js?v=135');
+  const {FFmpeg}=await import('./vendor/ffmpeg/ffmpeg/ios.js?v=136');
   const base=new URL('./vendor/ffmpeg/core/',location.href).href;
   const make=async()=>{const f=new FFmpeg();await timeout(f.load({coreURL:base+'ffmpeg-core.js',wasmURL:base+'ffmpeg-core.wasm'}),60000,'local core load timeout');return f};
   const prep=async f=>{await f.writeFile('overlay_000.png',await png('ONE'));await f.writeFile('overlay_001.png',await png('TWO'));const manifest="ffconcat version 1.0\nfile 'overlay_000.png'\nduration 1\nfile 'overlay_001.png'\nduration 1\nfile 'overlay_001.png'\n";await f.writeFile('overlays.ffconcat',new TextEncoder().encode(manifest))};
@@ -13,11 +13,12 @@ try{
   log('render-mp4-720p-zerolatency');
   let rc=await f.exec(['-f','lavfi','-i','color=c=black:s=1280x720:r=30:d=2','-f','lavfi','-i','sine=frequency=1000:duration=2','-f','concat','-safe','0','-i','overlays.ffconcat','-filter_complex','[2:v]format=rgba[ov];[0:v][ov]overlay=0:0:shortest=1[v]','-map','[v]','-map','1:a:0','-t','2','-r','30','-c:v','libx264','-threads','1','-preset','ultrafast','-tune','zerolatency','-x264-params','ref=1:bframes=0:rc-lookahead=0:sync-lookahead=0:scenecut=0','-crf','18','-maxrate','6M','-bufsize','12M','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-shortest','test.mp4'],120000);
   if(rc!==0)throw new Error('mp4 rc '+rc);const mp4=await f.readFile('test.mp4');window.__RESULT__.mp4=mp4.length;log('mp4 bytes '+mp4.length);if(mp4.length<1000)throw new Error('mp4 too small');
-  log('terminate-mp4-worker');f.terminate();await new Promise(r=>setTimeout(r,50));
+  log('terminate-mp4-worker');f.terminate();await new Promise(r=>setTimeout(r,80));
 
-  log('core-load-local-wmv-direct-fresh-worker');f=await make();await prep(f);
-  log('render-wmv-720p-direct-from-source');
-  rc=await f.exec(['-f','lavfi','-i','color=c=black:s=1280x720:r=30:d=2','-f','lavfi','-i','sine=frequency=1000:duration=2','-f','concat','-safe','0','-i','overlays.ffconcat','-filter_complex','[2:v]format=rgba[ov];[0:v][ov]overlay=0:0:shortest=1[v]','-map','[v]','-map','1:a:0','-t','2','-r','30','-c:v','wmv2','-threads','1','-b:v','6M','-c:a','wmav2','-b:a','128k','-shortest','test.wmv'],120000);
+  log('core-load-local-wmv-from-mp4-fresh-worker');f=await make();
+  await f.writeFile('source.mp4',mp4);
+  log('render-wmv-from-mp4-720p');
+  rc=await f.exec(['-i','source.mp4','-c:v','wmv2','-threads','1','-b:v','4M','-c:a','wmav2','-b:a','128k','test.wmv'],120000);
   if(rc!==0)throw new Error('wmv rc '+rc);const wmv=await f.readFile('test.wmv');window.__RESULT__.wmv=wmv.length;log('wmv bytes '+wmv.length);if(wmv.length<1000)throw new Error('wmv too small');
   f.terminate();window.__RESULT__.ok=true;
 }catch(e){window.__RESULT__.error=String(e?.message||e);log('ERROR '+window.__RESULT__.error)}finally{window.__RESULT__.done=true;log('done')}
