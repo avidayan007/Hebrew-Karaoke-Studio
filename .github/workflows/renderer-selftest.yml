@@ -5,6 +5,8 @@ on:
     paths:
       - 'renderer-selftest.html'
       - 'patch-v30.js'
+      - 'patch-v116.js'
+      - 'patch-v117.js'
       - 'patch-v138.js'
       - 'patch-v139.js'
       - 'patch-v140.js'
@@ -26,6 +28,8 @@ jobs:
       - name: Verify v1.145 JavaScript and performance wiring
         run: |
           node --check patch-v30.js
+          node --check patch-v116.js
+          node --check patch-v117.js
           node --check patch-v138.js
           node --check patch-v139.js
           node --check patch-v140.js
@@ -36,6 +40,8 @@ jobs:
           const fs=require('fs');
           const loader=fs.readFileSync('patch-v30.js','utf8');
           const sw=fs.readFileSync('sw.js','utf8');
+          const p116=fs.readFileSync('patch-v116.js','utf8');
+          const p117=fs.readFileSync('patch-v117.js','utf8');
           const p138=fs.readFileSync('patch-v138.js','utf8');
           const p139=fs.readFileSync('patch-v139.js','utf8');
           const p140=fs.readFileSync('patch-v140.js','utf8');
@@ -47,11 +53,11 @@ jobs:
           if(version.version!==145)throw Error('version.json is not 145');
           if(!sw.includes("CACHE='hks-v145'")||!sw.includes("patch-v145.js?v=145")||!sw.includes('version.json'))throw Error('v145 service worker missing');
           for(const [name,src] of [['v138',p138],['v139',p139],['v140',p140]])if(src.includes('new MutationObserver'))throw Error(name+' still has document mutation observer');
-          if(!p145.includes('__hksPerfFix145')||!p145.includes('Web v1.145'))throw Error('v145 finalizer missing');
+          if(!p116.includes('if(isiOS)')||!p116.includes("removeProperty('zoom')"))throw Error('v116 iOS zoom guard missing');
+          if(!p117.includes('if(isiOS)')||!p117.includes("removeProperty('width')"))throw Error('v117 iOS width guard missing');
+          if(!p145.includes('__hksPerfFix145')||!p145.includes('hksIOSPaint145')||!p145.includes("removeProperty('zoom')"))throw Error('v145 paint finalizer missing');
           for(const marker of ['AAC 320 kbps','PCM לא דחוס','pcm_s16le'])if(!p140.includes(marker))throw Error('audio marker missing: '+marker);
           if(!selftest.includes('register-service-worker-v145')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v145 selftest missing');
-          const files=fs.readdirSync('.').filter(x=>/^patch-v\d+\.js$/.test(x));
-          for(const f of files){const s=fs.readFileSync(f,'utf8');if(/body\.style|document\.body|background\s*[:=]\s*['\"]?transparent|backgroundColor\s*=/.test(s)){console.log('BODY/BG CANDIDATE',f,s.match(/.{0,100}(?:body\.style|document\.body|background\s*[:=]\s*['\"]?transparent|backgroundColor\s*=).{0,180}/g)?.slice(0,6))}}
           console.log('v1.145 wiring OK');
           NODE
       - name: Install Playwright WebKit
@@ -63,7 +69,7 @@ jobs:
         run: |
           python3 -m http.server 8080 >/tmp/server.log 2>&1 &
           sleep 2
-      - name: Verify iPhone app stays responsive and diagnose white area
+      - name: Verify iPhone app paint and tap responsiveness
         run: |
           node <<'NODE'
           const { webkit } = require('playwright');
@@ -74,13 +80,14 @@ jobs:
             await page.goto('http://127.0.0.1:8080/index.html?hksUpdate=144&_=123',{waitUntil:'domcontentloaded'});
             await page.waitForFunction(()=>document.querySelector('.version')?.textContent==='Web v1.145' && Number(window.__hksStartupMs145)>0 && window.__hksPerfFix145===true,null,{timeout:20000});
             await page.waitForTimeout(2300);
-            const diag=await page.evaluate(()=>{
-              const info=e=>{if(!e)return null;const r=e.getBoundingClientRect(),c=getComputedStyle(e);return{tag:e.tagName,id:e.id,cls:e.className,bg:c.backgroundColor,pos:c.position,display:c.display,z:c.zIndex,rect:[Math.round(r.x),Math.round(r.y),Math.round(r.width),Math.round(r.height)],style:e.getAttribute('style')||''}};
-              const points=[300,450,600,750,880].map(y=>({y,el:info(document.elementFromPoint(215,Math.min(innerHeight-2,y)))}));
-              let rules=[];for(const ss of [...document.styleSheets]){try{for(const r of [...ss.cssRules])if(/(^|,|\s)(html|body)(\b|[,:.#\[])/i.test(r.selectorText||'')&&/background/i.test(r.cssText||''))rules.push(r.cssText)}catch(_){}}
-              return{body:info(document.body),html:info(document.documentElement),points,rules:rules.slice(-20)};
-            });
-            console.log('WHITE DIAG',JSON.stringify(diag));
+            const paint=await page.evaluate(()=>({
+              zoom:document.body.style.zoom||'',width:document.body.style.width||'',maxWidth:document.body.style.maxWidth||'',
+              bodyBg:getComputedStyle(document.body).backgroundColor,htmlBg:getComputedStyle(document.documentElement).backgroundColor,
+              bodyBgImage:getComputedStyle(document.body).backgroundImage,htmlBgImage:getComputedStyle(document.documentElement).backgroundImage,
+              paintStyle:!!document.getElementById('hksIOSPaint145')
+            }));
+            console.log('PAINT',JSON.stringify(paint));
+            if(paint.zoom||paint.width||paint.maxWidth||!paint.paintStyle||paint.bodyBg==='rgba(0, 0, 0, 0)'||paint.htmlBg==='rgba(0, 0, 0, 0)')throw new Error('iPhone root paint/zoom not clean: '+JSON.stringify(paint));
             const perf=await page.evaluate(async()=>{
               let mutations=0;const mo=new MutationObserver(list=>{for(const m of list)if(m.type==='childList')mutations+=m.addedNodes.length+m.removedNodes.length+1});
               mo.observe(document.documentElement,{subtree:true,childList:true});
@@ -90,8 +97,11 @@ jobs:
             });
             console.log('IDLE PERF',JSON.stringify(perf));
             if(perf.mutations>200||perf.maxTimer>250)throw new Error('DOM storm / blocked event loop: '+JSON.stringify(perf));
-            for(const name of ['מילים','סטודיו','ייצוא','סטודיו']){const t=Date.now();await page.getByRole('button',{name}).click();if(Date.now()-t>1000)throw new Error('slow tab click '+name)}
-            const before=page.url();const btn=page.getByRole('button',{name:/רענן עדכון/});await btn.click();
+            for(const pageName of ['lyrics','studio','export','studio']){
+              const tab=page.locator(`button.tab[data-page="${pageName}"]`);const t=Date.now();await tab.click({timeout:1500});
+              const elapsed=Date.now()-t;console.log('TAB',pageName,elapsed);if(elapsed>1000)throw new Error('slow tab click '+pageName+' '+elapsed);
+            }
+            const before=page.url();const btn=page.getByRole('button',{name:/רענן עדכון/}).first();await btn.click({timeout:1500});
             await page.waitForFunction(()=>/אתה כבר בגרסה האחרונה.*v1\.145/.test(document.querySelector('#status')?.textContent||''),null,{timeout:5000});
             await page.waitForTimeout(300);
             const state=await page.evaluate(()=>({version:document.querySelector('.version')?.textContent,status:document.querySelector('#status')?.textContent,updating:[...document.querySelectorAll('button')].some(b=>b.disabled&&/מעדכן|בודק עדכון/.test(b.textContent||''))}));
