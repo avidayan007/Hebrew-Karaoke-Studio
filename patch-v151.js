@@ -48,6 +48,7 @@
   document.addEventListener('keydown',e=>{if(e.code==='Space'||((e.metaKey||e.ctrlKey)&&['z','y'].includes(String(e.key).toLowerCase())))setTimeout(paint,0)},true);
   document.getElementById('loadProject')?.addEventListener('change',()=>setTimeout(paint,80));
 
+  window.__hksCompactHistory151Api={paint,undo:()=>{api.undo();paint()},redo:()=>{api.redo();paint()}};
   paint();
   const ver=document.querySelector('.version');if(ver)ver.textContent='Web v1.151';
   try{setStatus('v1.151 מוכן — Undo / Redo קטנים ליד רענן עדכון.')}catch(_){}
