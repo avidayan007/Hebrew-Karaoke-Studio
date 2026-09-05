@@ -1,12 +1,18 @@
-<!doctype html><meta charset="utf-8"><title>Renderer self-test v136</title><pre id="out">starting</pre><script type="module">
+<!doctype html><meta charset="utf-8"><title>Renderer self-test v137</title><pre id="out">starting</pre><script type="module">
 const out=document.getElementById('out');const log=s=>{out.textContent+='\n'+s;console.log(s)};
-window.__RESULT__={done:false,ok:false,error:null,mp4:0,wmv:0};
+window.__RESULT__={done:false,ok:false,error:null,mp4:0,wmv:0,sw:'',ffmpegCachedByApp:false};
 const timeout=(p,ms,msg)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error(msg)),ms))]);
+async function pingSW(){return new Promise(resolve=>{const c=navigator.serviceWorker.controller;if(!c)return resolve('');const ch=new MessageChannel(),t=setTimeout(()=>resolve(''),1500);ch.port1.onmessage=e=>{clearTimeout(t);resolve(String(e.data||''))};c.postMessage({type:'HKS_SW_VERSION'},[ch.port2])})}
 async function png(label){const c=document.createElement('canvas');c.width=1280;c.height=720;const x=c.getContext('2d');x.clearRect(0,0,1280,720);x.fillStyle='rgba(0,0,0,.01)';x.fillRect(0,0,1280,720);x.font='bold 72px Arial';x.textAlign='center';x.fillStyle='white';x.strokeStyle='black';x.lineWidth=8;x.strokeText(label,640,380);x.fillText(label,640,380);return new Uint8Array(await (await new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(Error('png failed')),'image/png'))).arrayBuffer())}
 try{
-  const {FFmpeg}=await import('./vendor/ffmpeg/ffmpeg/ios.js?v=136');
+  log('register-service-worker-v137');
+  const reg=await navigator.serviceWorker.register('./sw.js?v=137',{updateViaCache:'none'});try{await reg.update()}catch(_){}await navigator.serviceWorker.ready;
+  if(!navigator.serviceWorker.controller)await Promise.race([new Promise(r=>navigator.serviceWorker.addEventListener('controllerchange',r,{once:true})),new Promise(r=>setTimeout(r,10000))]);
+  window.__RESULT__.sw=await pingSW();log('service-worker '+window.__RESULT__.sw);if(window.__RESULT__.sw!=='hks-v137')throw new Error('service worker is not v137');
+
+  const {FFmpeg}=await import('./vendor/ffmpeg/ffmpeg/ios.js?v=137');
   const base=new URL('./vendor/ffmpeg/core/',location.href).href;
-  const make=async()=>{const f=new FFmpeg();await timeout(f.load({coreURL:base+'ffmpeg-core.js',wasmURL:base+'ffmpeg-core.wasm'}),60000,'local core load timeout');return f};
+  const make=async()=>{const t=performance.now(),f=new FFmpeg();await timeout(f.load({coreURL:base+'ffmpeg-core.js',wasmURL:base+'ffmpeg-core.wasm'}),90000,'local core load timeout');log('core load ms '+Math.round(performance.now()-t));return f};
   const prep=async f=>{await f.writeFile('overlay_000.png',await png('ONE'));await f.writeFile('overlay_001.png',await png('TWO'));const manifest="ffconcat version 1.0\nfile 'overlay_000.png'\nduration 1\nfile 'overlay_001.png'\nduration 1\nfile 'overlay_001.png'\n";await f.writeFile('overlays.ffconcat',new TextEncoder().encode(manifest))};
 
   log('core-load-local-mp4');let f=await make();await prep(f);
@@ -20,6 +26,10 @@ try{
   log('render-wmv-from-mp4-720p');
   rc=await f.exec(['-i','source.mp4','-c:v','wmv2','-threads','1','-b:v','4M','-c:a','wmav2','-b:a','128k','test.wmv'],120000);
   if(rc!==0)throw new Error('wmv rc '+rc);const wmv=await f.readFile('test.wmv');window.__RESULT__.wmv=wmv.length;log('wmv bytes '+wmv.length);if(wmv.length<1000)throw new Error('wmv too small');
-  f.terminate();window.__RESULT__.ok=true;
+  f.terminate();
+
+  for(const key of await caches.keys()){const c=await caches.open(key);if(await c.match(base+'ffmpeg-core.wasm'))window.__RESULT__.ffmpegCachedByApp=true}
+  log('ffmpeg cached by app '+window.__RESULT__.ffmpegCachedByApp);if(window.__RESULT__.ffmpegCachedByApp)throw new Error('FFmpeg WASM must bypass app Cache Storage');
+  window.__RESULT__.ok=true;
 }catch(e){window.__RESULT__.error=String(e?.message||e);log('ERROR '+window.__RESULT__.error)}finally{window.__RESULT__.done=true;log('done')}
 </script>
