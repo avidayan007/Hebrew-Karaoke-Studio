@@ -4,6 +4,12 @@ on:
     branches: [main]
     paths:
       - 'renderer-selftest.html'
+      - 'patch-v28.js'
+      - 'patch-v30.js'
+      - 'patch-v84.js'
+      - 'patch-v131.js'
+      - 'sw.js'
+      - 'vendor/ffmpeg/**'
       - '.github/workflows/renderer-selftest.yml'
   workflow_dispatch:
 jobs:
@@ -14,7 +20,24 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
+      - name: Verify v1.131 JavaScript and wiring
+        run: |
+          node --check patch-v28.js
+          node --check patch-v30.js
+          node --check patch-v84.js
+          node --check patch-v131.js
+          node --check sw.js
+          node - <<'NODE'
+          const fs=require('fs');
+          const loader=fs.readFileSync('patch-v30.js','utf8');
+          const sw=fs.readFileSync('sw.js','utf8');
+          const p=fs.readFileSync('patch-v131.js','utf8');
+          if(!loader.includes('129,130,131')||!loader.includes('?v=131'))throw Error('v131 loader wiring missing');
+          if(!sw.includes("CACHE='hks-v131'")||!sw.includes('patch-v131.js?v=131'))throw Error('v131 service-worker wiring missing');
+          for(const marker of ['MP4_TIMEOUT=20*60*1000','WMV_TIMEOUT=15*60*1000','overlays.ffconcat','__hksRenderBusy131'])if(!p.includes(marker))throw Error('v131 renderer marker missing: '+marker);
+          console.log('v1.131 wiring OK');
+          NODE
       - name: Install Playwright WebKit
         run: |
           npm init -y
