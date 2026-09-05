@@ -34,7 +34,7 @@ jobs:
           const sw=fs.readFileSync('sw.js','utf8');
           const p=fs.readFileSync('patch-v131.js','utf8');
           if(!loader.includes('129,130,131')||!loader.includes('?v=131'))throw Error('v131 loader wiring missing');
-          if(!sw.includes("CACHE='hks-v131'")||!sw.includes('patch-v131.js?v=131'))throw Error('v131 service-worker wiring missing');
+          if(!sw.includes("CACHE='hks-v131'")||!sw.includes(',129,130,131]')||!sw.includes('patch-v${n}.js?v=131'))throw Error('v131 service-worker wiring missing');
           for(const marker of ['MP4_TIMEOUT=20*60*1000','WMV_TIMEOUT=15*60*1000','overlays.ffconcat','__hksRenderBusy131'])if(!p.includes(marker))throw Error('v131 renderer marker missing: '+marker);
           console.log('v1.131 wiring OK');
           NODE
