@@ -1,18 +1,19 @@
-<!doctype html><meta charset="utf-8"><title>Renderer self-test v143</title><pre id="out">starting</pre><script type="module">
+<!doctype html><meta charset="utf-8"><title>Renderer self-test v144</title><pre id="out">starting</pre><script type="module">
 const out=document.getElementById('out');const log=s=>{out.textContent+='\n'+s;console.log(s)};
 window.__RESULT__={done:false,ok:false,error:null,mp4:0,wmv:0,sw:'',ffmpegCachedByApp:false,patchCached:false};
 const timeout=(p,ms,msg)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error(msg)),ms))]);
 async function pingSW(){return new Promise(resolve=>{const c=navigator.serviceWorker.controller;if(!c)return resolve('');const ch=new MessageChannel(),t=setTimeout(()=>resolve(''),1500);ch.port1.onmessage=e=>{clearTimeout(t);resolve(String(e.data||''))};c.postMessage({type:'HKS_SW_VERSION'},[ch.port2])})}
 async function png(label){const c=document.createElement('canvas');c.width=1280;c.height=720;const x=c.getContext('2d');x.clearRect(0,0,1280,720);x.fillStyle='rgba(0,0,0,.01)';x.fillRect(0,0,1280,720);x.font='bold 72px Arial';x.textAlign='center';x.fillStyle='white';x.strokeStyle='black';x.lineWidth=8;x.strokeText(label,640,380);x.fillText(label,640,380);return new Uint8Array(await (await new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(Error('png failed')),'image/png'))).arrayBuffer())}
 try{
-  log('register-service-worker-v143');
-  const reg=await navigator.serviceWorker.register('./sw.js?v=143',{updateViaCache:'none'});try{await reg.update()}catch(_){}await navigator.serviceWorker.ready;
+  log('register-service-worker-v144');
+  const reg=await navigator.serviceWorker.register('./sw.js?v=144',{updateViaCache:'none'});try{await reg.update()}catch(_){}await navigator.serviceWorker.ready;
   if(!navigator.serviceWorker.controller)await Promise.race([new Promise(r=>navigator.serviceWorker.addEventListener('controllerchange',r,{once:true})),new Promise(r=>setTimeout(r,10000))]);
-  window.__RESULT__.sw=await pingSW();log('service-worker '+window.__RESULT__.sw);if(window.__RESULT__.sw!=='hks-v143')throw new Error('service worker is not v143');
-  const patchResp=await fetch('./patch-v140.js?v=143&r=selftest');if(!patchResp.ok)throw new Error('patch fetch failed '+patchResp.status);await patchResp.text();
-  const cache=await caches.open('hks-v143');window.__RESULT__.patchCached=!!(await cache.match('./patch-v140.js?v=143',{ignoreSearch:true}));log('patch cached '+window.__RESULT__.patchCached);if(!window.__RESULT__.patchCached)throw new Error('patch cache-first store missing');
+  window.__RESULT__.sw=await pingSW();log('service-worker '+window.__RESULT__.sw);if(window.__RESULT__.sw!=='hks-v144')throw new Error('service worker is not v144');
+  const vr=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});const vj=await vr.json();if(Number(vj.version)!==144)throw new Error('version.json is not 144');
+  const patchResp=await fetch('./patch-v140.js?v=144&r=selftest');if(!patchResp.ok)throw new Error('patch fetch failed '+patchResp.status);await patchResp.text();
+  const cache=await caches.open('hks-v144');window.__RESULT__.patchCached=!!(await cache.match('./patch-v140.js?v=144',{ignoreSearch:true}));log('patch cached '+window.__RESULT__.patchCached);if(!window.__RESULT__.patchCached)throw new Error('patch cache-first store missing');
 
-  const {FFmpeg}=await import('./vendor/ffmpeg/ffmpeg/ios.js?v=143');
+  const {FFmpeg}=await import('./vendor/ffmpeg/ffmpeg/ios.js?v=144');
   const base=new URL('./vendor/ffmpeg/core/',location.href).href;
   const make=async()=>{const t=performance.now(),f=new FFmpeg();await timeout(f.load({coreURL:base+'ffmpeg-core.js',wasmURL:base+'ffmpeg-core.wasm'}),90000,'local core load timeout');log('core load ms '+Math.round(performance.now()-t));return f};
   const prep=async f=>{await f.writeFile('overlay_000.png',await png('ONE'));await f.writeFile('overlay_001.png',await png('TWO'));const manifest="ffconcat version 1.0\nfile 'overlay_000.png'\nduration 1\nfile 'overlay_001.png'\nduration 1\nfile 'overlay_001.png'\n";await f.writeFile('overlays.ffconcat',new TextEncoder().encode(manifest))};
