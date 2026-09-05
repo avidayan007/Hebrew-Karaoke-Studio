@@ -5,15 +5,10 @@ on:
     paths:
       - 'renderer-selftest.html'
       - 'patch-v30.js'
-      - 'patch-v136.js'
-      - 'patch-v137.js'
       - 'patch-v138.js'
       - 'patch-v139.js'
       - 'patch-v140.js'
-      - 'patch-v141.js'
-      - 'patch-v142.js'
-      - 'patch-v143.js'
-      - 'patch-v144.js'
+      - 'patch-v145.js'
       - 'version.json'
       - 'sw.js'
       - 'vendor/ffmpeg/**'
@@ -28,12 +23,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify v1.144 JavaScript and wiring
+      - name: Verify v1.145 JavaScript and performance wiring
         run: |
           node --check patch-v30.js
           node --check patch-v138.js
+          node --check patch-v139.js
           node --check patch-v140.js
-          node --check patch-v144.js
+          node --check patch-v145.js
           node --check sw.js
           node --check vendor/ffmpeg/ffmpeg/worker-classic.js
           node - <<'NODE'
@@ -41,18 +37,21 @@ jobs:
           const loader=fs.readFileSync('patch-v30.js','utf8');
           const sw=fs.readFileSync('sw.js','utf8');
           const p138=fs.readFileSync('patch-v138.js','utf8');
+          const p139=fs.readFileSync('patch-v139.js','utf8');
           const p140=fs.readFileSync('patch-v140.js','utf8');
-          const p144=fs.readFileSync('patch-v144.js','utf8');
+          const p145=fs.readFileSync('patch-v145.js','utf8');
           const version=JSON.parse(fs.readFileSync('version.json','utf8'));
           const selftest=fs.readFileSync('renderer-selftest.html','utf8');
-          if(!loader.includes('__hksLoaderVersion=144')||!loader.includes('142,143,144')||!loader.includes('__hksStartupMs144'))throw Error('v144 loader missing');
-          if(version.version!==144)throw Error('version.json is not 144');
-          if(!sw.includes("CACHE='hks-v144'")||!sw.includes('version.json')||!sw.includes("cache:'no-store'"))throw Error('v144 service worker missing');
-          if(!p138.includes('latestVersion')||!p138.includes('version.json')||!p138.includes('אתה כבר בגרסה האחרונה')||p138.includes('caches.delete'))throw Error('smart update no-op logic missing');
-          if(!p144.includes('Web v1.144')||!p144.includes('מנגנון העדכון החכם'))throw Error('v144 finalizer missing');
+          if(!loader.includes('__hksLoaderVersion=145')||!loader.includes('143,144,145')||!loader.includes('__hksStartupMs145')||!loader.includes('yieldUI'))throw Error('v145 responsive loader missing');
+          if(loader.includes('warmUrls')||loader.includes('Promise.all(Array.from({length:6},warmer))'))throw Error('old background patch warmer still present');
+          if(version.version!==145)throw Error('version.json is not 145');
+          if(!sw.includes("CACHE='hks-v145'")||!sw.includes("patch-v145.js?v=145")||!sw.includes('version.json'))throw Error('v145 service worker missing');
+          for(const [name,src] of [['v138',p138],['v139',p139],['v140',p140]])if(src.includes('new MutationObserver'))throw Error(name+' still has document mutation observer');
+          if(!p139.includes('no document-wide MutationObserver')||!p140.includes('removed document-wide MutationObserver'))throw Error('performance hotfix markers missing');
+          if(!p145.includes('__hksPerfFix145')||!p145.includes('Web v1.145'))throw Error('v145 finalizer missing');
           for(const marker of ['AAC 320 kbps','PCM לא דחוס','pcm_s16le'])if(!p140.includes(marker))throw Error('audio marker missing: '+marker);
-          if(!selftest.includes('register-service-worker-v144')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v144 selftest missing');
-          console.log('v1.144 wiring OK');
+          if(!selftest.includes('register-service-worker-v145')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v145 selftest missing');
+          console.log('v1.145 wiring OK');
           NODE
       - name: Install Playwright WebKit
         run: |
@@ -63,28 +62,43 @@ jobs:
         run: |
           python3 -m http.server 8080 >/tmp/server.log 2>&1 &
           sleep 2
-      - name: Verify full app startup and update no-op
+      - name: Verify iPhone app stays responsive without DOM storm
         run: |
           node <<'NODE'
           const { webkit } = require('playwright');
           (async()=>{
             const browser=await webkit.launch({headless:true});
-            const page=await browser.newPage({userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'});
+            const page=await browser.newPage({viewport:{width:430,height:932},userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'});
             page.on('pageerror',e=>console.error('PAGEERROR:',e.message));
-            await page.goto('http://127.0.0.1:8080/index.html?hksUpdate=143&_=123',{waitUntil:'domcontentloaded'});
-            await page.waitForFunction(()=>document.querySelector('.version')?.textContent==='Web v1.144' && Number(window.__hksStartupMs144)>0,null,{timeout:15000});
-            const before=page.url();
-            const btn=page.getByRole('button',{name:/רענן עדכון/});
-            await btn.waitFor({timeout:5000});
-            await btn.click();
-            await page.waitForFunction(()=>/אתה כבר בגרסה האחרונה.*v1\.144/.test(document.querySelector('#status')?.textContent||''),null,{timeout:5000});
-            await page.waitForTimeout(600);
-            const state=await page.evaluate(()=>({version:document.querySelector('.version')?.textContent,status:document.querySelector('#status')?.textContent,startup:window.__hksStartupMs144,search:location.search,updating:[...document.querySelectorAll('button')].some(b=>b.disabled&&/מעדכן|בודק עדכון/.test(b.textContent||''))}));
-            console.log('STARTUP/UPDATE',JSON.stringify(state));
-            if(state.version!=='Web v1.144'||state.updating||/hksUpdate/.test(state.search)||page.url()!==before.replace(/\?.*$/,'')){
-              // The loader removes the update query, so compare base URL only.
-              const base=x=>x.replace(/\?.*$/,''); if(base(page.url())!==base(before))process.exit(1);
+            await page.goto('http://127.0.0.1:8080/index.html?hksUpdate=144&_=123',{waitUntil:'domcontentloaded'});
+            await page.waitForFunction(()=>document.querySelector('.version')?.textContent==='Web v1.145' && Number(window.__hksStartupMs145)>0 && window.__hksPerfFix145===true,null,{timeout:20000});
+            await page.waitForTimeout(2300);
+            const perf=await page.evaluate(async()=>{
+              let mutations=0;const mo=new MutationObserver(list=>{for(const m of list)if(m.type==='childList')mutations+=m.addedNodes.length+m.removedNodes.length+1});
+              mo.observe(document.documentElement,{subtree:true,childList:true});
+              const delays=[];
+              for(let i=0;i<12;i++){
+                const t=performance.now();
+                await new Promise(r=>setTimeout(r,0));
+                delays.push(performance.now()-t);
+              }
+              await new Promise(r=>setTimeout(r,1000));mo.disconnect();
+              return{mutations,maxTimer:Math.max(...delays),bodyBg:getComputedStyle(document.body).backgroundColor};
+            });
+            console.log('IDLE PERF',JSON.stringify(perf));
+            if(perf.mutations>40||perf.maxTimer>250)throw new Error('DOM storm / blocked event loop: '+JSON.stringify(perf));
+            for(const name of ['מילים','סטודיו','ייצוא','סטודיו']){
+              const t=Date.now();await page.getByRole('button',{name}).click();
+              if(Date.now()-t>1000)throw new Error('slow tab click '+name);
             }
+            const before=page.url();
+            const btn=page.getByRole('button',{name:/רענן עדכון/});await btn.click();
+            await page.waitForFunction(()=>/אתה כבר בגרסה האחרונה.*v1\.145/.test(document.querySelector('#status')?.textContent||''),null,{timeout:5000});
+            await page.waitForTimeout(300);
+            const state=await page.evaluate(()=>({version:document.querySelector('.version')?.textContent,status:document.querySelector('#status')?.textContent,updating:[...document.querySelectorAll('button')].some(b=>b.disabled&&/מעדכן|בודק עדכון/.test(b.textContent||''))}));
+            console.log('FINAL',JSON.stringify(state));
+            if(state.version!=='Web v1.145'||state.updating)throw new Error('update state stuck');
+            const base=x=>x.replace(/\?.*$/,'');if(base(page.url())!==base(before))throw new Error('unexpected navigation');
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
@@ -102,6 +116,6 @@ jobs:
             const result=await page.evaluate(()=>window.__RESULT__);
             console.log('RESULT',JSON.stringify(result));
             await browser.close();
-            if(!result.ok || result.sw!=='hks-v144' || !result.patchCached || result.ffmpegCachedByApp || result.mp4 < 1000 || result.wmv < 1000) process.exit(1);
+            if(!result.ok || result.sw!=='hks-v145' || !result.patchCached || result.ffmpegCachedByApp || result.mp4 < 1000 || result.wmv < 1000) process.exit(1);
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
