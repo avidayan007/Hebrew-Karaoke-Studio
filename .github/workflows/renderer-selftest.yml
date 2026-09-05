@@ -12,6 +12,7 @@ on:
       - 'patch-v133.js'
       - 'patch-v134.js'
       - 'patch-v135.js'
+      - 'patch-v136.js'
       - 'sw.js'
       - 'vendor/ffmpeg/**'
       - '.github/workflows/renderer-selftest.yml'
@@ -25,7 +26,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify v1.135 JavaScript and wiring
+      - name: Verify v1.136 JavaScript and wiring
         run: |
           node --check patch-v28.js
           node --check patch-v30.js
@@ -35,6 +36,7 @@ jobs:
           node --check patch-v133.js
           node --check patch-v134.js
           node --check patch-v135.js
+          node --check patch-v136.js
           node --check sw.js
           node --check vendor/ffmpeg/ffmpeg/worker-classic.js
           node - <<'NODE'
@@ -42,12 +44,14 @@ jobs:
           const loader=fs.readFileSync('patch-v30.js','utf8');
           const sw=fs.readFileSync('sw.js','utf8');
           const p135=fs.readFileSync('patch-v135.js','utf8');
+          const p136=fs.readFileSync('patch-v136.js','utf8');
           const selftest=fs.readFileSync('renderer-selftest.html','utf8');
-          if(!loader.includes('133,134,135')||!loader.includes('?v=135'))throw Error('v135 loader wiring missing');
-          if(!sw.includes("CACHE='hks-v135'")||!sw.includes(',133,134,135]')||!sw.includes('patch-v${n}.js?v=135'))throw Error('v135 service-worker wiring missing');
-          for(const marker of ['safe720','1280','720','zerolatency','x264-params','__hksLastFFmpegError135'])if(!p135.includes(marker))throw Error('v135 marker missing: '+marker);
-          if(!selftest.includes('render-mp4-720p-zerolatency')||!selftest.includes('render-wmv-720p-direct-from-source'))throw Error('v135 self-test flow missing');
-          console.log('v1.135 wiring OK');
+          if(!loader.includes('134,135,136')||!loader.includes('?v=136'))throw Error('v136 loader wiring missing');
+          if(!sw.includes("CACHE='hks-v136'")||!sw.includes(',134,135,136]')||!sw.includes('patch-v${n}.js?v=136'))throw Error('v136 service-worker wiring missing');
+          for(const marker of ['safe720','zerolatency','__hksLastFFmpegError135'])if(!p135.includes(marker))throw Error('v135 stable renderer marker missing: '+marker);
+          for(const marker of ['storedMp4','source136.mp4',"videoK=mode==='safe720'?'4M'",'__hksRender136'])if(!p136.includes(marker))throw Error('v136 WMV marker missing: '+marker);
+          if(!selftest.includes('render-mp4-720p-zerolatency')||!selftest.includes('render-wmv-from-mp4-720p'))throw Error('v136 self-test flow missing');
+          console.log('v1.136 wiring OK');
           NODE
       - name: Install Playwright WebKit
         run: |
