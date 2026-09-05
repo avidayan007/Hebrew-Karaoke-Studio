@@ -88,6 +88,11 @@
       }catch(_){return []}
     }
     function syncBackground(){
+      if(window.__hksRenderBusy131){
+        try{vid.pause()}catch(_){ }
+        vid.hidden=true;img.hidden=true;
+        return;
+      }
       const srcVideo=document.getElementById('bgVideo');
       const srcImg=document.getElementById('bgImg');
       if(srcVideo && srcVideo.src){
@@ -104,6 +109,12 @@
       pct.textContent=Math.round(p)+'%';
       stageEl.textContent=state.textContent||'מוכן';
       timeEl.textContent=`${fmtShort(t)} / ${fmtShort(duration)}`;
+      if(window.__hksRenderBusy131){
+        try{vid.pause()}catch(_){ }
+        vid.hidden=true;img.hidden=true;
+        lyricsEl.textContent=p>0?'מרנדר…':'מוכן לרינדור';
+        return;
+      }
       syncBackground();
       const lines=linesAt(t);
       lyricsEl.innerHTML=lines.length?lines.map(x=>`<div>${String(x).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div>`).join(''):(p>0?'מרנדר…':'מוכן לרינדור');
