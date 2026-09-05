@@ -10,6 +10,7 @@ on:
       - 'patch-v131.js'
       - 'patch-v132.js'
       - 'patch-v133.js'
+      - 'patch-v134.js'
       - 'sw.js'
       - 'vendor/ffmpeg/**'
       - '.github/workflows/renderer-selftest.yml'
@@ -23,7 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify v1.133 JavaScript and wiring
+      - name: Verify v1.134 JavaScript and wiring
         run: |
           node --check patch-v28.js
           node --check patch-v30.js
@@ -31,6 +32,7 @@ jobs:
           node --check patch-v131.js
           node --check patch-v132.js
           node --check patch-v133.js
+          node --check patch-v134.js
           node --check sw.js
           node --check vendor/ffmpeg/ffmpeg/worker-classic.js
           node - <<'NODE'
@@ -40,12 +42,17 @@ jobs:
           const p131=fs.readFileSync('patch-v131.js','utf8');
           const p132=fs.readFileSync('patch-v132.js','utf8');
           const p133=fs.readFileSync('patch-v133.js','utf8');
-          if(!loader.includes('131,132,133')||!loader.includes('?v=133'))throw Error('v133 loader wiring missing');
-          if(!sw.includes("CACHE='hks-v133'")||!sw.includes(',131,132,133]')||!sw.includes('patch-v${n}.js?v=133'))throw Error('v133 service-worker wiring missing');
-          for(const marker of ['MP4_TIMEOUT=20*60*1000','WMV_TIMEOUT=15*60*1000','overlays.ffconcat','__hksRenderBusy131'])if(!p131.includes(marker))throw Error('v131 renderer marker missing: '+marker);
-          for(const marker of ['STALL_TIMEOUT=180*1000','ios.js?v=132','מצב iPhone מהיר v1.132'])if(!p132.includes(marker))throw Error('v132 stability marker missing: '+marker);
-          for(const marker of ['beforeinput','insertSpace','אהבה ישנה'])if(!p133.includes(marker))throw Error('v133 filename-space marker missing: '+marker);
-          console.log('v1.133 wiring OK');
+          const p134=fs.readFileSync('patch-v134.js','utf8');
+          const selftest=fs.readFileSync('renderer-selftest.html','utf8');
+          if(!loader.includes('132,133,134')||!loader.includes('?v=134'))throw Error('v134 loader wiring missing');
+          if(!sw.includes("CACHE='hks-v134'")||!sw.includes(',132,133,134]')||!sw.includes('patch-v${n}.js?v=134'))throw Error('v134 service-worker wiring missing');
+          for(const marker of ['MP4_TIMEOUT=20*60*1000','overlays.ffconcat','__hksRenderBusy131'])if(!p131.includes(marker))throw Error('v131 renderer marker missing: '+marker);
+          for(const marker of ['STALL_TIMEOUT=180*1000','ios.js?v=132'])if(!p132.includes(marker))throw Error('v132 stability marker missing: '+marker);
+          for(const marker of ['beforeinput','insertSpace','אהבה ישנה'])if(!p133.includes(marker))throw Error('v133 filename marker missing: '+marker);
+          for(const marker of ["'-crf','18'",'wmvSafeBitrate','__hksRenderMobile134','יוצר WMV ישירות מהמקור'])if(!p134.includes(marker))throw Error('v134 low-memory marker missing: '+marker);
+          if(selftest.includes("writeFile('test.mp4',mp4)"))throw Error('self-test still copies MP4 into WMV worker');
+          if(!selftest.includes('render-wmv-direct-from-source')||selftest.includes("'-movflags','+faststart'"))throw Error('v134 self-test flow missing');
+          console.log('v1.134 wiring OK');
           NODE
       - name: Install Playwright WebKit
         run: |
