@@ -9,6 +9,7 @@
 
   const MP4_TIMEOUT=20*60*1000;
   const WMV_TIMEOUT=15*60*1000;
+  const EXPORT_PAGE_LINES=6;
   let renderName='karaoke',wakeLock=null,waveWasReleased=false;
 
   function cleanName(s){return String(s||'').trim().replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').replace(/^\.+|\.+$/g,'').slice(0,80)||'karaoke'}
@@ -16,10 +17,16 @@
   function fitCanvasFont(c,text,maxW,start,min){let size=start;while(size>min){c.font=`800 ${size}px Arial, sans-serif`;if(c.measureText(text).width<=maxW)break;size-=2}return size}
   function slideGroups(duration){
     const maxLine=words.reduce((m,w)=>Math.max(m,w.line??0),0),out=[];
-    for(let start=0;start<=maxLine;start+=4){
-      const group=words.filter(w=>(w.line??0)>=start&&(w.line??0)<start+4),synced=group.filter(w=>Number.isFinite(Number(w.time)));
+    for(let start=0;start<=maxLine;start+=EXPORT_PAGE_LINES){
+      const group=words.filter(w=>(w.line??0)>=start&&(w.line??0)<start+EXPORT_PAGE_LINES),synced=group.filter(w=>Number.isFinite(Number(w.time)));
       if(!group.length||!synced.length)continue;
-      const lines=[];for(let l=start;l<start+4;l++){const t=words.filter(w=>(w.line??0)===l).map(w=>w.t).join(' ');if(t)lines.push(t)}
+      const lines=[];
+      for(let l=start;l<start+EXPORT_PAGE_LINES;l++){
+        const t=words.filter(w=>(w.line??0)===l).map(w=>w.t).join(' ');
+        if(t)lines.push(t);
+      }
+      // Each export page jumps at the first synchronized word that belongs to that page.
+      // The export intentionally has no karaoke-progress coloring: lyrics are plain white/black only.
       out.push({start:start===0?0:Math.min(...synced.map(w=>Number(w.time))),lines});
     }
     out.sort((a,b)=>a.start-b.start);
@@ -33,9 +40,21 @@
     c.font=`900 ${bs}px Arial, sans-serif`;c.lineWidth=Math.max(2,Math.round(bs*.12));c.strokeStyle='#fff';c.fillStyle='#2584e6';c.textBaseline='top';
     c.textAlign='left';c.direction='ltr';c.strokeText('Avi Dayan The Show',pad,top);c.fillText('Avi Dayan The Show',pad,top);
     c.textAlign='right';c.direction='rtl';c.strokeText('אבי דיין ההופעה',p.width-pad,top);c.fillText('אבי דיין ההופעה',p.width-pad,top);
-    const gap=Math.round(p.height*.105),base=Math.round(p.height*.075),maxW=p.width*.90,firstY=p.height/2-((Math.max(lines.length,1)-1)*gap)/2;
+    const count=Math.max(1,lines.length);
+    const gap=Math.round(p.height*(count>=6?.078:count===5?.088:.105));
+    const base=Math.round(p.height*(count>=6?.060:count===5?.067:.075));
+    const minFont=Math.max(22,Math.round(p.height*.032));
+    const maxW=p.width*.90,firstY=p.height/2-((count-1)*gap)/2;
     c.textAlign='center';c.textBaseline='middle';c.direction='rtl';
-    lines.forEach((line,i)=>{const fs=fitCanvasFont(c,line,maxW,base,30);c.font=`800 ${fs}px Arial, sans-serif`;c.lineWidth=Math.max(5,Math.round(fs*.11));c.strokeStyle='#000';c.fillStyle='#fff';c.strokeText(line,p.width/2,firstY+i*gap,maxW);c.fillText(line,p.width/2,firstY+i*gap,maxW)});
+    lines.forEach((line,i)=>{
+      const fs=fitCanvasFont(c,line,maxW,base,minFont);
+      c.font=`800 ${fs}px Arial, sans-serif`;
+      c.lineWidth=Math.max(4,Math.round(fs*.11));
+      c.strokeStyle='#000';
+      c.fillStyle='#fff';
+      c.strokeText(line,p.width/2,firstY+i*gap,maxW);
+      c.fillText(line,p.width/2,firstY+i*gap,maxW);
+    });
     return new Promise((res,rej)=>cv.toBlob(b=>b?res(b):rej(new Error('לא הצלחתי ליצור שכבת כתוביות')),'image/png'));
   }
   async function acquireWake(){try{wakeLock=await navigator.wakeLock?.request?.('screen')||null}catch(e){wakeLock=null}}
@@ -86,7 +105,6 @@
     audio.pause();window.__hksRenderBusy131=true;document.body.classList.add('hksRendering131');const previewWasPlaying=pausePreviewVideo();releaseWaveBuffer();await acquireWake();
     let f=null,files=[];
     try{
-      // Stage A: render MP4 in a clean worker.
       f=await loadFFmpeg();const p=exportPreset();p.fps=Math.min(30,Math.max(24,Number(p.fps)||30));
       if(p.width>1920){p.width=1920;p.height=1080;p.videoK='12M';setExportState('באייפון 4K הותאם ל‑1080p Master כדי לשמור על יציבות ומהירות',7)}
       const inp=await prepareInputs131(f,duration,p);files=[inp.audioName,inp.bgName,'overlays.ffconcat',...inp.overlayNames,'output.mp4'].filter(Boolean);
@@ -97,13 +115,10 @@
       const mp4Transfer=await f.readFile('output.mp4');
       if(!mp4Transfer||mp4Transfer.byteLength<1000)throw new Error('קובץ MP4 יצא ריק');
 
-      // Important for iOS: this FFmpeg core is not reliable for a second exec in the same worker.
-      // Kill the MP4 worker (and all overlay/background heap) before creating WMV.
       setExportState('שלב 3/4 — MP4 מוכן; משחרר זיכרון ומכין WMV…',76);
       terminateEngine(f);f=null;files=[];
       await new Promise(r=>setTimeout(r,80));
 
-      // Stage B: fresh worker gets only the MP4, then creates WMV.
       renderStage='wmv';f=await loadFFmpeg();files=['output.mp4','output.wmv'];
       await f.writeFile('output.mp4',mp4Transfer);
       const wp=window.wmvExportPreset?.()||p,wv=wp.videoK||p.videoK;
@@ -123,12 +138,11 @@
     }
   }
 
-  // v1.28 owns the filename dialog. Reuse its UI, but route START to the new renderer.
   const btn=$('#dualExportBtn'),overlay=$('#exportSetupOverlay'),nameInput=$('#exportFileName'),start=$('#exportSetupStart');
   if(btn){btn.onclick=()=>{if(exportBusy)return;if(overlay){nameInput.value=cleanName(window.__hksExportBaseName||renderName);overlay.classList.add('show');setTimeout(()=>{nameInput.focus();nameInput.select()},50)}else renderMobile131()}}
   if(start){start.onclick=()=>{renderName=cleanName(nameInput?.value||window.__hksExportBaseName||'karaoke');window.__hksExportBaseName=renderName;if(nameInput)nameInput.value=renderName;overlay?.classList.remove('show');setStatus('שם הקבצים: '+renderName+' — מתחיל רינדור מהיר לאייפון');renderMobile131()}}
   renderDual=renderMobile131;
-  window.__hksRenderMobile131={render:renderMobile131,get busy(){return!!window.__hksRenderBusy131}};
+  window.__hksRenderMobile131={render:renderMobile131,get busy(){return!!window.__hksRenderBusy131},pageLines:EXPORT_PAGE_LINES};
   const ver=$('.version');if(ver)ver.textContent='Web v1.131';
   try{navigator.serviceWorker?.register?.('sw.js?v=131',{updateViaCache:'none'}).then(r=>r.update?.()).catch(()=>{})}catch(e){}
 })();
