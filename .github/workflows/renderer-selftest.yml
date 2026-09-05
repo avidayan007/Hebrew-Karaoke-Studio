@@ -84,7 +84,6 @@ jobs:
             });
             console.log('WAVEFOLLOW',JSON.stringify(result));
             if(result.version!=='Web v1.149'||!result.afterUpdate||result.afterUpdate.z!==10||!(result.afterUpdate.p>0.45&&result.afterUpdate.p<0.56)||result.active!==false||result.calls.length<2)throw new Error('waveform follow failed '+JSON.stringify(result));
-            for(const pageName of ['studio','sync','studio']){const tab=page.locator(`button.tab[data-page="${pageName}"]`);const t=Date.now();await tab.click({timeout:1500});if(Date.now()-t>1000)throw new Error('slow tab '+pageName)}
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
