@@ -1,7 +1,6 @@
 // Avi Karaoke Studio Web v1.131 — iPhone memory-safe faster renderer
-// Keeps the existing MP4 + WMV workflow, but removes the 5-minute render ceiling,
-// uses one sequential overlay input instead of many simultaneous PNG inputs,
-// pauses preview video work during render, and releases the WASM heap afterwards.
+// Keeps the existing MP4 + WMV workflow, removes the 5-minute ceiling,
+// uses one sequential overlay input, and uses a fresh FFmpeg worker per encode stage.
 (function(){
   if(window.aviDesktop?.isDesktop)return;
   const $=s=>document.querySelector(s);
@@ -87,20 +86,36 @@
     audio.pause();window.__hksRenderBusy131=true;document.body.classList.add('hksRendering131');const previewWasPlaying=pausePreviewVideo();releaseWaveBuffer();await acquireWake();
     let f=null,files=[];
     try{
+      // Stage A: render MP4 in a clean worker.
       f=await loadFFmpeg();const p=exportPreset();p.fps=Math.min(30,Math.max(24,Number(p.fps)||30));
       if(p.width>1920){p.width=1920;p.height=1080;p.videoK='12M';setExportState('באייפון 4K הותאם ל‑1080p Master כדי לשמור על יציבות ומהירות',7)}
-      const inp=await prepareInputs131(f,duration,p);files=[inp.audioName,inp.bgName,'overlays.ffconcat',...inp.overlayNames,'output.mp4','output.wmv'].filter(Boolean);
+      const inp=await prepareInputs131(f,duration,p);files=[inp.audioName,inp.bgName,'overlays.ffconcat',...inp.overlayNames,'output.mp4'].filter(Boolean);
       const vf=`[0:v]scale=${p.width}:${p.height}:force_original_aspect_ratio=increase,crop=${p.width}:${p.height}[base];[2:v]format=rgba[ov];[base][ov]overlay=0:0:shortest=1[v]`;
       renderStage='mp4';setExportState('שלב 2/4 — מרנדר MP4 באייפון…',18);
       const rc=await f.exec([...inp.bgArgs,'-i',inp.audioName,'-f','concat','-safe','0','-i','overlays.ffconcat','-filter_complex',vf,'-map','[v]','-map','1:a:0','-t',String(duration),'-r',String(p.fps),'-c:v','libx264','-preset','ultrafast','-pix_fmt','yuv420p','-b:v',p.videoK,'-c:a','aac','-b:a',p.audioK,'-movflags','+faststart','-shortest','output.mp4'],MP4_TIMEOUT);
       if(rc!==0)throw new Error('רינדור MP4 נכשל או נעצר');
-      renderStage='wmv';setExportState('שלב 3/4 — MP4 מוכן; יוצר WMV…',76);
+      const mp4Transfer=await f.readFile('output.mp4');
+      if(!mp4Transfer||mp4Transfer.byteLength<1000)throw new Error('קובץ MP4 יצא ריק');
+
+      // Important for iOS: this FFmpeg core is not reliable for a second exec in the same worker.
+      // Kill the MP4 worker (and all overlay/background heap) before creating WMV.
+      setExportState('שלב 3/4 — MP4 מוכן; משחרר זיכרון ומכין WMV…',76);
+      terminateEngine(f);f=null;files=[];
+      await new Promise(r=>setTimeout(r,80));
+
+      // Stage B: fresh worker gets only the MP4, then creates WMV.
+      renderStage='wmv';f=await loadFFmpeg();files=['output.mp4','output.wmv'];
+      await f.writeFile('output.mp4',mp4Transfer);
       const wp=window.wmvExportPreset?.()||p,wv=wp.videoK||p.videoK;
+      setExportState('שלב 3/4 — יוצר WMV במנוע נקי…',80);
       const rc2=await f.exec(['-i','output.mp4','-c:v','wmv2','-b:v',wv,'-c:a','wmav2','-b:a',wp.audioK||p.audioK,'output.wmv'],WMV_TIMEOUT);
       if(rc2!==0)throw new Error('יצירת WMV נכשלה או נעצרה');
+
       renderStage='';setExportState('שלב 4/4 — מכין את הקבצים לשמירה…',96);
-      const mp4Data=await f.readFile('output.mp4');const mp4Blob=new Blob([mp4Data.buffer],{type:'video/mp4'});if(mp4Blob.size<1000)throw new Error('קובץ MP4 יצא ריק');await safeDelete131(f,'output.mp4');setDownloadLink('#downloadMp4',mp4Blob,renderName+'.mp4');
-      const wmvData=await f.readFile('output.wmv');const wmvBlob=new Blob([wmvData.buffer],{type:'video/x-ms-wmv'});if(wmvBlob.size<1000)throw new Error('קובץ WMV יצא ריק');await safeDelete131(f,'output.wmv');setDownloadLink('#downloadWmv',wmvBlob,renderName+'.wmv');
+      const mp4Data=await f.readFile('output.mp4');const mp4Blob=new Blob([mp4Data.buffer],{type:'video/mp4'});if(mp4Blob.size<1000)throw new Error('קובץ MP4 יצא ריק');setDownloadLink('#downloadMp4',mp4Blob,renderName+'.mp4');
+      await safeDelete131(f,'output.mp4');files=files.filter(x=>x!=='output.mp4');
+      const wmvData=await f.readFile('output.wmv');const wmvBlob=new Blob([wmvData.buffer],{type:'video/x-ms-wmv'});if(wmvBlob.size<1000)throw new Error('קובץ WMV יצא ריק');setDownloadLink('#downloadWmv',wmvBlob,renderName+'.wmv');
+      await safeDelete131(f,'output.wmv');files=files.filter(x=>x!=='output.wmv');
       setExportState('הרינדור הסתיים — MP4 ו‑WMV מוכנים לשמירה',100);
     }catch(e){console.error('[v131 iPhone render]',e);setExportState('הרינדור נעצר: '+(e?.message||e),0)}
     finally{
@@ -115,6 +130,5 @@
   renderDual=renderMobile131;
   window.__hksRenderMobile131={render:renderMobile131,get busy(){return!!window.__hksRenderBusy131}};
   const ver=$('.version');if(ver)ver.textContent='Web v1.131';
-  // Force an iOS PWA service-worker update so the new renderer is not shadowed by an old cache.
   try{navigator.serviceWorker?.register?.('sw.js?v=131',{updateViaCache:'none'}).then(r=>r.update?.()).catch(()=>{})}catch(e){}
 })();
