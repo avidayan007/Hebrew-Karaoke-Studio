@@ -1,19 +1,19 @@
-<!doctype html><meta charset="utf-8"><title>Renderer self-test v146</title><pre id="out">starting</pre><script type="module">
+<!doctype html><meta charset="utf-8"><title>Renderer self-test v147</title><pre id="out">starting</pre><script type="module">
 const out=document.getElementById('out');const log=s=>{out.textContent+='\n'+s;console.log(s)};
-window.__RESULT__={done:false,ok:false,error:null,mp4:0,wmv:0,sw:'',ffmpegCachedByApp:false,patchCached:false};
+window.__RESULT__={done:false,ok:false,error:null,mp4:0,wmv:0,sw:'',ffmpegCachedByApp:false,patchCached:false,handoffPreserved:false};
 const timeout=(p,ms,msg)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error(msg)),ms))]);
 async function pingSW(){return new Promise(resolve=>{const c=navigator.serviceWorker.controller;if(!c)return resolve('');const ch=new MessageChannel(),t=setTimeout(()=>resolve(''),1500);ch.port1.onmessage=e=>{clearTimeout(t);resolve(String(e.data||''))};c.postMessage({type:'HKS_SW_VERSION'},[ch.port2])})}
 async function png(label){const c=document.createElement('canvas');c.width=1280;c.height=720;const x=c.getContext('2d');x.clearRect(0,0,1280,720);x.fillStyle='rgba(0,0,0,.01)';x.fillRect(0,0,1280,720);x.font='bold 72px Arial';x.textAlign='center';x.fillStyle='white';x.strokeStyle='black';x.lineWidth=8;x.strokeText(label,640,380);x.fillText(label,640,380);return new Uint8Array(await (await new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(Error('png failed')),'image/png'))).arrayBuffer())}
 try{
-  log('register-service-worker-v146');
-  const reg=await navigator.serviceWorker.register('./sw.js?v=146',{updateViaCache:'none'});try{await reg.update()}catch(_){}await navigator.serviceWorker.ready;
+  log('register-service-worker-v147');
+  const reg=await navigator.serviceWorker.register('./sw.js?v=147',{updateViaCache:'none'});try{await reg.update()}catch(_){}await navigator.serviceWorker.ready;
   if(!navigator.serviceWorker.controller)await Promise.race([new Promise(r=>navigator.serviceWorker.addEventListener('controllerchange',r,{once:true})),new Promise(r=>setTimeout(r,10000))]);
-  window.__RESULT__.sw=await pingSW();log('service-worker '+window.__RESULT__.sw);if(window.__RESULT__.sw!=='hks-v146')throw new Error('service worker is not v146');
-  const vr=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});const vj=await vr.json();if(Number(vj.version)!==146)throw new Error('version.json is not 146');
-  const patchResp=await fetch('./patch-v146.js?v=146&r=selftest');if(!patchResp.ok)throw new Error('patch fetch failed '+patchResp.status);await patchResp.text();
-  const cache=await caches.open('hks-v146');window.__RESULT__.patchCached=!!(await cache.match('./patch-v146.js?v=146',{ignoreSearch:true}));log('patch cached '+window.__RESULT__.patchCached);if(!window.__RESULT__.patchCached)throw new Error('patch cache-first store missing');
+  window.__RESULT__.sw=await pingSW();log('service-worker '+window.__RESULT__.sw);if(window.__RESULT__.sw!=='hks-v147')throw new Error('service worker is not v147');
+  const vr=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});const vj=await vr.json();if(Number(vj.version)!==147)throw new Error('version.json is not 147');
+  const patchResp=await fetch('./patch-v147.js?v=147&r=selftest');if(!patchResp.ok)throw new Error('patch fetch failed '+patchResp.status);await patchResp.text();
+  const cache=await caches.open('hks-v147');window.__RESULT__.patchCached=!!(await cache.match('./patch-v147.js?v=147',{ignoreSearch:true}));log('patch cached '+window.__RESULT__.patchCached);if(!window.__RESULT__.patchCached)throw new Error('patch cache-first store missing');
 
-  const {FFmpeg}=await import('./vendor/ffmpeg/ffmpeg/ios.js?v=146');
+  const {FFmpeg}=await import('./vendor/ffmpeg/ffmpeg/ios.js?v=147');
   const base=new URL('./vendor/ffmpeg/core/',location.href).href;
   const make=async()=>{const t=performance.now(),f=new FFmpeg();await timeout(f.load({coreURL:base+'ffmpeg-core.js',wasmURL:base+'ffmpeg-core.wasm'}),90000,'local core load timeout');log('core load ms '+Math.round(performance.now()-t));return f};
   const prep=async f=>{await f.writeFile('overlay_000.png',await png('ONE'));await f.writeFile('overlay_001.png',await png('TWO'));const manifest="ffconcat version 1.0\nfile 'overlay_000.png'\nduration 1\nfile 'overlay_001.png'\nduration 1\nfile 'overlay_001.png'\n";await f.writeFile('overlays.ffconcat',new TextEncoder().encode(manifest))};
@@ -22,9 +22,10 @@ try{
   log('render-mp4-720p-aac320');
   let rc=await f.exec(['-f','lavfi','-i','color=c=black:s=1280x720:r=30:d=2','-f','lavfi','-i','sine=frequency=1000:duration=2','-f','concat','-safe','0','-i','overlays.ffconcat','-filter_complex','[2:v]format=rgba[ov];[0:v][ov]overlay=0:0:shortest=1[v]','-map','[v]','-map','1:a:0','-t','2','-r','30','-c:v','libx264','-threads','1','-preset','ultrafast','-tune','zerolatency','-x264-params','ref=1:bframes=0:rc-lookahead=0:sync-lookahead=0:scenecut=0','-b:v','6M','-pix_fmt','yuv420p','-c:a','aac','-b:a','320k','-ar','48000','-ac','2','-shortest','test.mp4'],120000);
   if(rc!==0)throw new Error('mp4 rc '+rc);const mp4=await f.readFile('test.mp4');window.__RESULT__.mp4=mp4.length;log('mp4 bytes '+mp4.length);if(mp4.length<1000)throw new Error('mp4 too small');
-  log('terminate-mp4-worker');f.terminate();await new Promise(r=>setTimeout(r,80));
+  const originalBytes=mp4.byteLength;log('terminate-mp4-worker');f.terminate();await new Promise(r=>setTimeout(r,80));
 
-  log('core-load-local-wmv-from-mp4-fresh-worker');f=await make();await f.writeFile('source.mp4',mp4);
+  log('core-load-local-wmv-from-mp4-fresh-worker');f=await make();const workerCopy=mp4.slice();await f.writeFile('source.mp4',workerCopy);
+  window.__RESULT__.handoffPreserved=mp4.byteLength===originalBytes;log('mp4 preserved after worker handoff '+window.__RESULT__.handoffPreserved+' bytes '+mp4.byteLength);if(!window.__RESULT__.handoffPreserved)throw new Error('MP4 buffer detached during WMV handoff');
   log('render-wmv-720p-pcm-s16le-48k-stereo');
   rc=await f.exec(['-i','source.mp4','-c:v','wmv2','-threads','1','-b:v','4M','-c:a','pcm_s16le','-ar','48000','-ac','2','test.wmv'],120000);
   if(rc!==0)throw new Error('wmv pcm rc '+rc);const wmv=await f.readFile('test.wmv');window.__RESULT__.wmv=wmv.length;log('wmv pcm bytes '+wmv.length);if(wmv.length<1000)throw new Error('wmv too small');f.terminate();
