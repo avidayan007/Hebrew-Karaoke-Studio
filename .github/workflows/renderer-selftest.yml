@@ -16,6 +16,7 @@ on:
       - 'patch-v137.js'
       - 'patch-v138.js'
       - 'patch-v139.js'
+      - 'patch-v140.js'
       - 'sw.js'
       - 'vendor/ffmpeg/**'
       - '.github/workflows/renderer-selftest.yml'
@@ -29,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify v1.139 JavaScript and wiring
+      - name: Verify v1.140 JavaScript and wiring
         run: |
           node --check patch-v28.js
           node --check patch-v30.js
@@ -43,6 +44,7 @@ jobs:
           node --check patch-v137.js
           node --check patch-v138.js
           node --check patch-v139.js
+          node --check patch-v140.js
           node --check sw.js
           node --check vendor/ffmpeg/ffmpeg/worker-classic.js
           node - <<'NODE'
@@ -50,23 +52,23 @@ jobs:
           const loader=fs.readFileSync('patch-v30.js','utf8');
           const sw=fs.readFileSync('sw.js','utf8');
           const p133=fs.readFileSync('patch-v133.js','utf8');
-          const p135=fs.readFileSync('patch-v135.js','utf8');
           const p136=fs.readFileSync('patch-v136.js','utf8');
           const p137=fs.readFileSync('patch-v137.js','utf8');
           const p138=fs.readFileSync('patch-v138.js','utf8');
           const p139=fs.readFileSync('patch-v139.js','utf8');
+          const p140=fs.readFileSync('patch-v140.js','utf8');
           const selftest=fs.readFileSync('renderer-selftest.html','utf8');
-          if(!loader.includes('__hksLoaderVersion=139')||!loader.includes('137,138,139')||!loader.includes('?v=139'))throw Error('v139 loader wiring missing');
-          if(!sw.includes("CACHE='hks-v139'")||!sw.includes(',137,138,139]')||!sw.includes('patch-v${n}.js?v=139'))throw Error('v139 service-worker wiring missing');
-          if(!sw.includes("p.includes('/vendor/ffmpeg/')")||!sw.includes('HKS_SW_VERSION'))throw Error('v139 FFmpeg service-worker bypass missing');
-          if(!p133.includes('__hksRecovery139')||!p133.includes('[134,135,136,137,138,139]'))throw Error('stale v133 recovery missing');
-          for(const marker of ['safe720','zerolatency','__hksLastFFmpegError135'])if(!p135.includes(marker))throw Error('v135 stable renderer marker missing: '+marker);
-          for(const marker of ['storedMp4','source136.mp4',"videoK=mode==='safe720'?'4M'",'__hksRender136'])if(!p136.includes(marker))throw Error('v136 WMV marker missing: '+marker);
-          for(const marker of ['hks-v137','LOAD_TIMEOUT=180*1000','__hksFFmpegLoading137','__hksExportEstimate137'])if(!p137.includes(marker))throw Error('v137 marker missing: '+marker);
-          for(const marker of ['hks-v139','__hksHardUpdating138',"hksUpdate','139"])if(!p138.includes(marker))throw Error('hard update recovery marker missing: '+marker);
-          for(const marker of ['720p HD — iPhone Safe • MP4 עד 6 Mbps','720p HD — iPhone Safe • WMV 4 Mbps','hksEffective139'])if(!p139.includes(marker))throw Error('v139 visible preset marker missing: '+marker);
-          if(!selftest.includes('register-service-worker-v139')||!selftest.includes('render-mp4-720p-zerolatency')||!selftest.includes('render-wmv-from-mp4-720p')||!selftest.includes('ffmpegCachedByApp'))throw Error('v139 self-test flow missing');
-          console.log('v1.139 wiring OK');
+          if(!loader.includes('__hksLoaderVersion=140')||!loader.includes('138,139,140')||!loader.includes('?v=140'))throw Error('v140 loader wiring missing');
+          if(!sw.includes("CACHE='hks-v140'")||!sw.includes(',138,139,140]')||!sw.includes('patch-v${n}.js?v=140'))throw Error('v140 service-worker wiring missing');
+          if(!sw.includes("p.includes('/vendor/ffmpeg/')")||!sw.includes('HKS_SW_VERSION'))throw Error('FFmpeg service-worker bypass missing');
+          if(!p133.includes('__hksRecovery140')||!p133.includes('[134,135,136,137,138,139,140]'))throw Error('stale v133 recovery missing');
+          for(const marker of ['source136.mp4','pcm_s16le','48000','1536'])if(!p136.includes(marker))throw Error('v136 PCM WMV marker missing: '+marker);
+          for(const marker of ['hks-v137','LOAD_TIMEOUT=180*1000','__hksFFmpegLoading137'])if(!p137.includes(marker))throw Error('v137 marker missing: '+marker);
+          for(const marker of ['hks-v140',"hksUpdate','140"])if(!p138.includes(marker))throw Error('hard update recovery marker missing: '+marker);
+          for(const marker of ['720p HD — iPhone Safe • MP4 עד 6 Mbps','720p HD — iPhone Safe • WMV 4 Mbps'])if(!p139.includes(marker))throw Error('v139 visible preset marker missing: '+marker);
+          for(const marker of ['AAC 320 kbps','PCM לא דחוס','pcm_s16le','1536k-equivalent'])if(!p140.includes(marker))throw Error('v140 audio marker missing: '+marker);
+          if(!selftest.includes('register-service-worker-v140')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v140 self-test flow missing');
+          console.log('v1.140 wiring OK');
           NODE
       - name: Install Playwright WebKit
         run: |
@@ -77,7 +79,7 @@ jobs:
         run: |
           python3 -m http.server 8080 >/tmp/server.log 2>&1 &
           sleep 2
-      - name: Run actual MP4 and WMV render in WebKit with service worker
+      - name: Run MP4 AAC + WMV PCM render in WebKit with service worker
         run: |
           node <<'NODE'
           const { webkit } = require('playwright');
@@ -91,6 +93,6 @@ jobs:
             const result=await page.evaluate(()=>window.__RESULT__);
             console.log('RESULT',JSON.stringify(result));
             await browser.close();
-            if(!result.ok || result.sw!=='hks-v139' || result.ffmpegCachedByApp || result.mp4 < 1000 || result.wmv < 1000) process.exit(1);
+            if(!result.ok || result.sw!=='hks-v140' || result.ffmpegCachedByApp || result.mp4 < 1000 || result.wmv < 1000) process.exit(1);
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
