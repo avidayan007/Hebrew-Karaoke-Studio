@@ -9,6 +9,7 @@ on:
       - 'patch-v84.js'
       - 'patch-v131.js'
       - 'patch-v132.js'
+      - 'patch-v133.js'
       - 'sw.js'
       - 'vendor/ffmpeg/**'
       - '.github/workflows/renderer-selftest.yml'
@@ -22,13 +23,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify v1.132 JavaScript and wiring
+      - name: Verify v1.133 JavaScript and wiring
         run: |
           node --check patch-v28.js
           node --check patch-v30.js
           node --check patch-v84.js
           node --check patch-v131.js
           node --check patch-v132.js
+          node --check patch-v133.js
           node --check sw.js
           node --check vendor/ffmpeg/ffmpeg/worker-classic.js
           node - <<'NODE'
@@ -37,11 +39,13 @@ jobs:
           const sw=fs.readFileSync('sw.js','utf8');
           const p131=fs.readFileSync('patch-v131.js','utf8');
           const p132=fs.readFileSync('patch-v132.js','utf8');
-          if(!loader.includes('130,131,132')||!loader.includes('?v=132'))throw Error('v132 loader wiring missing');
-          if(!sw.includes("CACHE='hks-v132'")||!sw.includes(',130,131,132]')||!sw.includes('patch-v${n}.js?v=132'))throw Error('v132 service-worker wiring missing');
+          const p133=fs.readFileSync('patch-v133.js','utf8');
+          if(!loader.includes('131,132,133')||!loader.includes('?v=133'))throw Error('v133 loader wiring missing');
+          if(!sw.includes("CACHE='hks-v133'")||!sw.includes(',131,132,133]')||!sw.includes('patch-v${n}.js?v=133'))throw Error('v133 service-worker wiring missing');
           for(const marker of ['MP4_TIMEOUT=20*60*1000','WMV_TIMEOUT=15*60*1000','overlays.ffconcat','__hksRenderBusy131'])if(!p131.includes(marker))throw Error('v131 renderer marker missing: '+marker);
           for(const marker of ['STALL_TIMEOUT=180*1000','ios.js?v=132','מצב iPhone מהיר v1.132'])if(!p132.includes(marker))throw Error('v132 stability marker missing: '+marker);
-          console.log('v1.132 wiring OK');
+          for(const marker of ['beforeinput','insertSpace','אהבה ישנה'])if(!p133.includes(marker))throw Error('v133 filename-space marker missing: '+marker);
+          console.log('v1.133 wiring OK');
           NODE
       - name: Install Playwright WebKit
         run: |
