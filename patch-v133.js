@@ -19,13 +19,12 @@
   }
 
   // Recovery path for iPhones that are stuck on an old loader/cache and therefore stop at v1.133.
-  // A current loader sets __hksLoaderVersion=138 before importing patches, so it will not double-load.
-  if((Number(window.__hksLoaderVersion)||0)<138&&!window.__hksRecovery138){
-    window.__hksRecovery138=true;
+  if((Number(window.__hksLoaderVersion)||0)<139&&!window.__hksRecovery139){
+    window.__hksRecovery139=true;
     setTimeout(async()=>{
       try{
         const v=document.querySelector('.version');if(v)v.textContent='Web v1.133 → מעדכן…';
-        for(const n of [134,135,136,137,138])await import(`./patch-v${n}.js?v=138`);
+        for(const n of [134,135,136,137,138,139])await import(`./patch-v${n}.js?v=139`);
       }catch(e){
         console.error('[v133 recovery]',e);
         try{setStatus('עדכון אוטומטי נעצר: '+(e?.message||e))}catch(_){}
@@ -34,5 +33,5 @@
   }else{
     const ver=document.querySelector('.version');if(ver)ver.textContent='Web v1.133';
   }
-  try{navigator.serviceWorker?.register?.('sw.js?v=138',{updateViaCache:'none'}).then(r=>r.update?.()).catch(()=>{})}catch(_){}
+  try{navigator.serviceWorker?.register?.('sw.js?v=139',{updateViaCache:'none'}).then(r=>r.update?.()).catch(()=>{})}catch(_){}
 })();
