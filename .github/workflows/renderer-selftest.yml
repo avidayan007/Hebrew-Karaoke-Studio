@@ -6,13 +6,13 @@ on:
       - 'renderer-selftest.html'
       - 'index.html'
       - 'patch-v30.js'
-      - 'patch-v131.js'
       - 'patch-v146.js'
       - 'patch-v147.js'
       - 'patch-v148.js'
       - 'patch-v149.js'
       - 'patch-v150.js'
       - 'patch-v151.js'
+      - 'patch-v152.js'
       - 'version.json'
       - 'sw.js'
       - 'vendor/ffmpeg/**'
@@ -27,25 +27,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify v1.151 compact history wiring
+      - name: Verify v1.152 parity wiring
         run: |
           node --check patch-v30.js
-          node --check patch-v150.js
-          node --check patch-v151.js
+          node --check patch-v152.js
           node --check sw.js
           node - <<'NODE'
           const fs=require('fs');
           const loader=fs.readFileSync('patch-v30.js','utf8');
           const sw=fs.readFileSync('sw.js','utf8');
-          const p151=fs.readFileSync('patch-v151.js','utf8');
+          const p=fs.readFileSync('patch-v152.js','utf8');
           const version=JSON.parse(fs.readFileSync('version.json','utf8'));
           const selftest=fs.readFileSync('renderer-selftest.html','utf8');
-          if(!loader.includes('__hksLoaderVersion=151')||!loader.includes('149,150,151')||!loader.includes('__hksStartupMs151'))throw Error('v151 loader wiring missing');
-          if(version.version!==151)throw Error('version.json is not 151');
-          if(!sw.includes("CACHE='hks-v151'")||!sw.includes("patch-v151.js?v=151"))throw Error('v151 service worker missing');
-          for(const marker of ['__hksCompactHistory151','hksTopActions151','hksUndo151','hksRedo151','44px','hksHistoryRow150'])if(!p151.includes(marker))throw Error('v151 compact history marker missing: '+marker);
-          if(!selftest.includes('register-service-worker-v151')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v151 renderer self-test wiring missing');
-          console.log('v1.151 wiring OK');
+          if(!loader.includes('__hksLoaderVersion=152')||!loader.includes('150,151,152')||!loader.includes('__hksStartupMs152'))throw Error('v152 loader wiring missing');
+          if(version.version!==152)throw Error('version.json is not 152');
+          if(!sw.includes("CACHE='hks-v152'")||!sw.includes("patch-v152.js?v=152"))throw Error('v152 service worker missing');
+          for(const marker of ['__hksPreviewParity152','aspect-ratio:16/9','TARGET_W=1920,TARGET_H=1080','BrandL','BrandR','SongTitle','__hksLastAssMetrics152'])if(!p.includes(marker))throw Error('v152 parity marker missing: '+marker);
+          if(!selftest.includes('register-service-worker-v152')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v152 renderer self-test wiring missing');
+          console.log('v1.152 wiring OK');
           NODE
       - name: Install Playwright WebKit
         run: |
@@ -56,7 +55,7 @@ jobs:
         run: |
           python3 -m http.server 8080 >/tmp/server.log 2>&1 &
           sleep 2
-      - name: Verify compact Undo Redo beside Refresh Update
+      - name: Verify live preview proportions equal ASS export proportions
         run: |
           node <<'NODE'
           const { webkit } = require('playwright');
@@ -65,22 +64,41 @@ jobs:
             const page=await browser.newPage({viewport:{width:430,height:932},userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'});
             page.on('pageerror',e=>console.error('PAGEERROR:',e.message));
             await page.goto('http://127.0.0.1:8080/index.html?hksUpdate=151&_=123',{waitUntil:'domcontentloaded'});
-            await page.waitForFunction(()=>document.querySelector('.version')?.textContent==='Web v1.151'&&window.__hksSyncHistory150Api&&window.__hksCompactHistory151Api,null,{timeout:25000});
+            await page.waitForFunction(()=>document.querySelector('.version')?.textContent==='Web v1.152'&&window.__hksPreviewParity152Api&&typeof window.buildAss==='function',null,{timeout:30000});
             const result=await page.evaluate(()=>{
-              document.getElementById('lyricsText').value='אחד שני שלוש';prepare();
-              const hist=window.__hksSyncHistory150Api,ui=window.__hksCompactHistory151Api;hist.clear();
-              words[0].time=1;current=1;hist.scan();
-              words[1].time=2;current=2;hist.scan();ui.paint();
-              const undo=document.getElementById('hksUndo151'),redo=document.getElementById('hksRedo151'),refresh=document.getElementById('hksRefresh105');
-              const ur=undo.getBoundingClientRect(),rr=redo.getBoundingClientRect();
-              const sameWrap=!!refresh&&refresh.parentElement?.id==='hksTopActions151'&&undo.parentElement===refresh.parentElement&&redo.parentElement===refresh.parentElement;
-              ui.undo();const afterUndo=words.map(w=>w.time);ui.redo();const afterRedo=words.map(w=>w.time);
-              return{version:document.querySelector('.version')?.textContent,largeRow:!!document.getElementById('hksHistoryRow150'),counter:!!document.getElementById('hksHistoryCount150'),sameWrap,uw:ur.width,uh:ur.height,rw:rr.width,rh:rr.height,afterUndo,afterRedo};
+              const preview=document.getElementById('preview');
+              document.getElementById('lyricsText').value='שורה אחת\nשורה שתיים\nשורה שלוש\nשורה ארבע';
+              prepare();
+              words.forEach((w,i)=>w.time=.5+i*.25);current=words.length;
+              try{renderWords();updateSyncPreview();updateLivePreview()}catch(_){}
+              const titleInput=document.getElementById('hksSongTitleInput');
+              if(titleInput){titleInput.value='שיר בדיקה';titleInput.dispatchEvent(new Event('input',{bubbles:true}));titleInput.dispatchEvent(new Event('change',{bubbles:true}))}
+              const api=window.__hksPreviewParity152Api,m=api.capture(),r=preview.getBoundingClientRect();
+              const ass=buildAss(8);
+              const style=name=>{const line=ass.split(/\r?\n/).find(x=>new RegExp('^Style:\\s*'+name+',','i').test(x));return line?line.split(','):null};
+              const L=style('Lyrics'),BL=style('BrandL'),BR=style('BrandR'),T=style('SongTitle');
+              const expected=x=>x?Math.max(8,Math.min(600,Math.round(x.fontH*1080))):0;
+              return {
+                version:document.querySelector('.version')?.textContent,
+                ratio:r.width/r.height,
+                metrics:m,
+                lyricsSize:L?Number(L[2]):0,brandLSize:BL?Number(BL[2]):0,brandRSize:BR?Number(BR[2]):0,titleSize:T?Number(T[2]):0,
+                brandLMargin:BL?Number(BL[19]):0,brandRMargin:BR?Number(BR[20]):0,brandLTop:BL?Number(BL[21]):0,brandRTop:BR?Number(BR[21]):0,
+                expectedLyrics:expected(m.lyrics),expectedBrandL:expected(m.brandL),expectedBrandR:expected(m.brandR),expectedTitle:expected(m.title),
+                expectedLMargin:m.brandL?Math.round(Math.max(0,Math.min(1,m.brandL.left))*1920):0,
+                expectedRMargin:m.brandR?Math.round(Math.max(0,Math.min(1,m.brandR.right))*1920):0,
+                expectedLTop:m.brandL?Math.round(Math.max(0,Math.min(1,m.brandL.top))*1080):0,
+                expectedRTop:m.brandR?Math.round(Math.max(0,Math.min(1,m.brandR.top))*1080):0,
+                hasCompactUndo:!!document.getElementById('hksUndo151'),hasCompactRedo:!!document.getElementById('hksRedo151')
+              };
             });
-            console.log('COMPACT',JSON.stringify(result));
-            if(result.version!=='Web v1.151'||result.largeRow||result.counter||!result.sameWrap)throw new Error('compact placement failed '+JSON.stringify(result));
-            if(result.uw>48||result.rw>48||result.uh>40||result.rh>40)throw new Error('history buttons are not compact '+JSON.stringify(result));
-            if(JSON.stringify(result.afterUndo)!==JSON.stringify([1,null,null])||JSON.stringify(result.afterRedo)!==JSON.stringify([1,2,null]))throw new Error('compact undo redo behavior failed '+JSON.stringify(result));
+            console.log('PARITY',JSON.stringify(result));
+            const near=(a,b,t=1)=>Math.abs(a-b)<=t;
+            if(result.version!=='Web v1.152'||Math.abs(result.ratio-16/9)>.025)throw new Error('preview is not 16:9 '+JSON.stringify(result));
+            if(!near(result.lyricsSize,result.expectedLyrics)||!near(result.brandLSize,result.expectedBrandL)||!near(result.brandRSize,result.expectedBrandR))throw new Error('font ratio parity failed '+JSON.stringify(result));
+            if(!near(result.brandLMargin,result.expectedLMargin,2)||!near(result.brandRMargin,result.expectedRMargin,2)||!near(result.brandLTop,result.expectedLTop,2)||!near(result.brandRTop,result.expectedRTop,2))throw new Error('brand position parity failed '+JSON.stringify(result));
+            if(result.expectedTitle>0&&!near(result.titleSize,result.expectedTitle))throw new Error('song title size parity failed '+JSON.stringify(result));
+            if(!result.hasCompactUndo||!result.hasCompactRedo)throw new Error('v151 compact history regressed');
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
@@ -95,6 +113,6 @@ jobs:
             await page.goto('http://127.0.0.1:8080/renderer-selftest.html',{waitUntil:'domcontentloaded'});
             await page.waitForFunction(()=>window.__RESULT__?.done===true,null,{timeout:180000});
             const result=await page.evaluate(()=>window.__RESULT__);console.log('RESULT',JSON.stringify(result));await browser.close();
-            if(!result.ok||result.sw!=='hks-v151'||!result.patchCached||result.ffmpegCachedByApp||!result.handoffPreserved||result.mp4<1000||result.wmv<1000)process.exit(1);
+            if(!result.ok||result.sw!=='hks-v152'||!result.patchCached||result.ffmpegCachedByApp||!result.handoffPreserved||result.mp4<1000||result.wmv<1000)process.exit(1);
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
