@@ -113,7 +113,7 @@
     const mods=await timeout(Promise.all([import('./vendor/ffmpeg/ffmpeg/ios.js?v=146'),import('./vendor/ffmpeg/util/index.js?v=146')]),30000,'לא הצלחתי לטעון את קבצי FFmpeg');
     const {FFmpeg}=mods[0],{fetchFile}=mods[1],f=new FFmpeg(),errors=[];let lastPaint=0,lastProgress=0;
     f.on('log',({message})=>{const m=String(message||'').trim();if(/error|failed|invalid|memory|abort|cannot|unable|allocation|killed|fatal/i.test(m)){errors.push(m);if(errors.length>8)errors.shift();window.__hksLastFFmpeg146=m}});
-    f.on('progress',({progress})=>{const now=Date.now(),v=Math.max(0,Math.min(1,Number(progress)||0);if(now-lastPaint<350&&v<.995&&v>=lastProgress)return;lastPaint=now;lastProgress=v;try{if(renderStage==='mp4')setExportState('שלב 2/4 — מרנדר MP4…',18+v*50);else if(renderStage==='wmv')setExportState('שלב 3/4 — יוצר WMV…',80+v*16)}catch(_){}});
+    f.on('progress',({progress})=>{const now=Date.now(),v=Math.max(0,Math.min(1,Number(progress)||0));if(now-lastPaint<350&&v<.995&&v>=lastProgress)return;lastPaint=now;lastProgress=v;try{if(renderStage==='mp4')setExportState('שלב 2/4 — מרנדר MP4…',18+v*50);else if(renderStage==='wmv')setExportState('שלב 3/4 — יוצר WMV…',80+v*16)}catch(_){}});
     const base=new URL('./vendor/ffmpeg/core/',location.href).href;
     await timeout(f.load({coreURL:base+'ffmpeg-core.js',wasmURL:base+'ffmpeg-core.wasm'}),LOAD_TIMEOUT,'מנוע FFmpeg לא נפתח בזמן',()=>f?.terminate?.());
     const rawExec=f.exec.bind(f),rawRead=f.readFile.bind(f);
@@ -129,7 +129,7 @@
     };
     f.readFile=async(path,encoding='binary')=>{
       const p=String(path||'');
-      if(renderStage==='wmv'&&p==='output.mp4'&&storedMp4){const d=storedMp4;storedMp4=null;return d}
+      if(p==='output.mp4'&&storedMp4){const d=storedMp4;storedMp4=null;return d}
       const d=await rawRead(path,encoding);
       if(renderStage==='mp4'&&p==='output.mp4'&&d instanceof Uint8Array&&d.byteLength>1000)storedMp4=d;
       return d;
@@ -157,7 +157,7 @@
       if(btn)btn.textContent='מעדכן ל-v1.'+latest+'…';
       try{const reg=await navigator.serviceWorker.register('sw.js?v='+latest,{updateViaCache:'none'});await reg.update?.()}catch(_){}
       const u=new URL(location.href);u.searchParams.set('hksUpdate',String(latest));u.searchParams.set('_',Date.now().toString());location.replace(u.href);
-    }finally{if(location.href){window.__hksUpdating146=false;if(btn){btn.disabled=false;btn.textContent=old}}}
+    }finally{window.__hksUpdating146=false;if(btn){btn.disabled=false;btn.textContent=old}}
   }
   function bindUpdate(){const btn=$('#hksRefresh105')||[...document.querySelectorAll('button')].find(b=>/רענן\s*עדכון|עדכון\s*רענן|מעדכן\s*לגרסה|בודק\s*עדכון/.test(String(b.textContent||'')));if(!btn||btn.dataset.hksUpdate146)return;btn.dataset.hksUpdate146='1';btn.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();doUpdate(btn)},true)}
   [0,200,700,1600].forEach(ms=>setTimeout(bindUpdate,ms));
