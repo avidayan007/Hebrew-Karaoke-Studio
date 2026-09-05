@@ -1,5 +1,5 @@
-const CACHE='hks-v146';
-const CORE=['./','index.html','app.js?v=30','patch-v17.js?v=30','patch-v18.js?v=30','patch-v20.js?v=30','patch-v21.js?v=30','patch-v25.js?v=30','patch-v27.js?v=30','patch-v28.js?v=30','patch-v29.js?v=30','patch-v30.js?v=146','patch-v146.js?v=146','version.json','manifest.webmanifest','433A5E98-4A3F-40B9-A6D0-91B22FF5B848.png'];
+const CACHE='hks-v147';
+const CORE=['./','index.html','app.js?v=30','patch-v17.js?v=30','patch-v18.js?v=30','patch-v20.js?v=30','patch-v21.js?v=30','patch-v25.js?v=30','patch-v27.js?v=30','patch-v28.js?v=30','patch-v29.js?v=30','patch-v30.js?v=147','patch-v146.js?v=147','patch-v147.js?v=147','version.json','manifest.webmanifest','433A5E98-4A3F-40B9-A6D0-91B22FF5B848.png'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil((async()=>{const c=await caches.open(CACHE);await Promise.allSettled(CORE.map(async a=>{try{const r=await fetch(a,{cache:'reload'});if(r&&r.ok)await c.put(a,r.clone())}catch(_){}}))})())});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()]))});
 self.addEventListener('message',e=>{if(e.data?.type==='HKS_SW_VERSION'&&e.ports?.[0])e.ports[0].postMessage(CACHE)});
