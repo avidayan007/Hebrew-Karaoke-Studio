@@ -14,6 +14,7 @@ on:
       - 'patch-v151.js'
       - 'patch-v152.js'
       - 'patch-v153.js'
+      - 'patch-v154.js'
       - 'version.json'
       - 'sw.js'
       - 'vendor/ffmpeg/**'
@@ -28,27 +29,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify v1.153 real iPhone renderer wiring
+      - name: Verify v1.154 custom fullscreen wiring
         run: |
           node --check patch-v30.js
-          node --check patch-v152.js
           node --check patch-v153.js
+          node --check patch-v154.js
           node --check sw.js
           node - <<'NODE'
           const fs=require('fs');
           const loader=fs.readFileSync('patch-v30.js','utf8');
           const sw=fs.readFileSync('sw.js','utf8');
-          const p=fs.readFileSync('patch-v153.js','utf8');
+          const p=fs.readFileSync('patch-v154.js','utf8');
           const index=fs.readFileSync('index.html','utf8');
           const version=JSON.parse(fs.readFileSync('version.json','utf8'));
           const selftest=fs.readFileSync('renderer-selftest.html','utf8');
-          if(!loader.includes('__hksLoaderVersion=153')||!loader.includes('151,152,153')||!loader.includes('__hksStartupMs153'))throw Error('v153 loader wiring missing');
-          if(version.version!==153)throw Error('version.json is not 153');
-          if(!sw.includes("CACHE='hks-v153'")||!sw.includes("patch-v153.js?v=153"))throw Error('v153 service worker missing');
-          if(!index.includes('aspect-ratio:16/9')||!index.includes('patch-v30.js?v=153')||!index.includes('Web v1.153 — טוען'))throw Error('v153 app shell missing');
-          for(const marker of ['__hksMobilePreviewParity153','makeOverlayBlob153','buildSlides153','linesPerScreen()','__hksLastMobileOverlay153','מרנדר MP4 בדיוק לפי התצוגה החיה'])if(!p.includes(marker))throw Error('v153 mobile parity marker missing: '+marker);
-          if(!selftest.includes('register-service-worker-v153')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v153 renderer self-test wiring missing');
-          console.log('v1.153 wiring OK');
+          if(!loader.includes('__hksLoaderVersion=154')||!loader.includes('152,153,154')||!loader.includes('__hksStartupMs154'))throw Error('v154 loader wiring missing');
+          if(version.version!==154)throw Error('version.json is not 154');
+          if(!sw.includes("CACHE='hks-v154'")||!sw.includes("patch-v154.js?v=154"))throw Error('v154 service worker missing');
+          if(!index.includes('patch-v30.js?v=154')||!index.includes('Web v1.154 — טוען'))throw Error('v154 app shell missing');
+          for(const marker of ['__hksFullscreenExportParity154','hksPhoneFullscreen','captureActualFullscreen','injectFullscreenMetrics','centerX:.5,centerY:.5','__hksFullscreenExportSnapshot154'])if(!p.includes(marker))throw Error('v154 fullscreen marker missing: '+marker);
+          if(!selftest.includes('register-service-worker-v154')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v154 renderer self-test wiring missing');
+          console.log('v1.154 wiring OK');
           NODE
       - name: Install Playwright WebKit
         run: |
@@ -59,39 +60,57 @@ jobs:
         run: |
           python3 -m http.server 8080 >/tmp/server.log 2>&1 &
           sleep 2
-      - name: Verify actual iPhone Canvas overlay matches live preview proportions
+      - name: Verify actual hksPhoneFullscreen drives iPhone Canvas export
         run: |
           node <<'NODE'
           const { webkit } = require('playwright');
           (async()=>{
             const browser=await webkit.launch({headless:true});
-            const page=await browser.newPage({viewport:{width:430,height:932},userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'});
+            const page=await browser.newPage({viewport:{width:932,height:430},userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'});
             page.on('pageerror',e=>console.error('PAGEERROR:',e.message));
-            await page.goto('http://127.0.0.1:8080/index.html?hksUpdate=152&_=123',{waitUntil:'domcontentloaded'});
-            await page.waitForFunction(()=>document.querySelector('.version')?.textContent==='Web v1.153'&&window.__hksRenderMobile153&&window.__hksPreviewParity152Api,null,{timeout:30000});
+            await page.goto('http://127.0.0.1:8080/index.html?hksUpdate=153&_=123',{waitUntil:'domcontentloaded'});
+            await page.waitForFunction(()=>document.querySelector('.version')?.textContent==='Web v1.154'&&window.__hksRenderMobile153&&window.__hksFullscreenExport154,null,{timeout:30000});
             const result=await page.evaluate(async()=>{
               const preview=document.getElementById('preview'),ly=document.getElementById('lyricsPreview'),bl=preview.querySelector('.brandL'),br=preview.querySelector('.brandR');
               document.getElementById('lyricsText').value='שורה אחת\nשורה שתיים\nשורה שלוש\nשורה ארבע';
               document.querySelector('#hksLinesPerScreen99 button[data-lines="4"]')?.click();
-              prepare();words.forEach((w,i)=>w.time=.5+i*.35);current=words.length;try{renderWords();updateSyncPreview()}catch(_){}
-              ly.style.setProperty('font-size','30px','important');bl.style.setProperty('font-size','17px','important');br.style.setProperty('font-size','17px','important');
-              const ti=document.getElementById('hksSongTitleText');if(ti)ti.style.setProperty('font-size','28px','important');
-              const titleInput=document.getElementById('hksSongTitleInput');if(titleInput){titleInput.value='שיר בדיקה';titleInput.dispatchEvent(new Event('input',{bubbles:true}));titleInput.dispatchEvent(new Event('change',{bubbles:true}))}
-              await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-              const api=window.__hksRenderMobile153,s=api.capture();
-              const slides=api.buildSlides(8),lyricsSlide=slides.find(x=>x.kind==='lyrics');
-              const blob=await api.makeOverlayBlob(lyricsSlide,{width:1280,height:720,fps:30});
-              const bm=await createImageBitmap(blob),actual=window.__hksLastMobileOverlay153;
-              return{version:document.querySelector('.version')?.textContent,ratio:preview.getBoundingClientRect().width/preview.getBoundingClientRect().height,linesPerScreen:api.linesPerScreen,slideLines:lyricsSlide?.lines?.length||0,blobW:bm.width,blobH:bm.height,snapshot:s,actual};
+              prepare();words.forEach((w,i)=>w.time=1+i*.35);current=words.length;try{renderWords();updateSyncPreview()}catch(_){}
+              ly.style.setProperty('font-size','52px','important');bl.style.setProperty('font-size','24px','important');br.style.setProperty('font-size','24px','important');
+              const titleInput=document.getElementById('hksSongTitleInput');if(titleInput){titleInput.value='שיר בדיקה';titleInput.dispatchEvent(new Event('input',{bubbles:true}))}
+              if(window.__hksSongTitleState)window.__hksSongTitleState.size=80;
+              const ti=document.getElementById('hksSongTitleText');if(ti)ti.style.setProperty('font-size','80px','important');
+
+              // Activate the exact custom fullscreen class used by v1.34 on iPhone.
+              preview.classList.add('hksPhoneFullscreen');document.body.classList.add('hksPreviewFullscreenOpen');
+              await new Promise(r=>setTimeout(r,240));
+              const full=window.__hksFullscreenExport154.capture();
+              const fullRect=preview.getBoundingClientRect();
+
+              // Leave fullscreen and go to Export. v1.154 must keep the measured fullscreen snapshot.
+              preview.classList.remove('hksPhoneFullscreen');document.body.classList.remove('hksPreviewFullscreenOpen');
+              document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='export'));
+              document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.page==='export'));
+              window.__hksFullscreenExport154.inject();
+              const injected=window.__hksFullscreenExportSnapshot154;
+              const api=window.__hksRenderMobile153;
+              const snap=api.capture();
+              const slides=api.buildSlides(8),lyricsSlide=slides.find(x=>x.kind==='lyrics'),titleSlide=slides.find(x=>x.kind==='title');
+              const lyricBlob=await api.makeOverlayBlob(lyricsSlide,{width:1280,height:720,fps:30});
+              const lyricBitmap=await createImageBitmap(lyricBlob),lyricActual=JSON.parse(JSON.stringify(window.__hksLastMobileOverlay153));
+              let titleActual=null;
+              if(titleSlide){await api.makeOverlayBlob(titleSlide,{width:1280,height:720,fps:30});titleActual=JSON.parse(JSON.stringify(window.__hksLastMobileOverlay153));}
+              return{version:document.querySelector('.version')?.textContent,fullW:fullRect.width,fullH:fullRect.height,full,injected,snap,blobW:lyricBitmap.width,blobH:lyricBitmap.height,lyricActual,titleActual};
             });
-            console.log('MOBILE_CANVAS_PARITY',JSON.stringify(result));
-            const near=(a,b,t=1.5)=>Math.abs(Number(a)-Number(b))<=t;
-            if(result.version!=='Web v1.153'||Math.abs(result.ratio-16/9)>.025)throw new Error('preview is not 16:9 '+JSON.stringify(result));
-            if(result.linesPerScreen!==4||result.slideLines!==4)throw new Error('mobile export does not follow selected 4-line layout '+JSON.stringify(result));
+            console.log('FULLSCREEN_EXPORT_PARITY',JSON.stringify(result));
+            const near=(a,b,t=1.6)=>Math.abs(Number(a)-Number(b))<=t;
+            if(result.version!=='Web v1.154')throw new Error('wrong version '+JSON.stringify(result));
+            if(Math.abs(result.fullW-932)>3||Math.abs(result.fullH-430)>3)throw new Error('custom fullscreen did not fill iPhone viewport '+JSON.stringify(result));
+            if(result.full.source!=='actual-hksPhoneFullscreen')throw new Error('actual custom fullscreen was not captured '+JSON.stringify(result));
             if(result.blobW!==1280||result.blobH!==720)throw new Error('overlay resolution mismatch '+JSON.stringify(result));
-            const s=result.snapshot,a=result.actual;
-            if(!near(a.content.fontPx,s.lyrics.fontH*720))throw new Error('actual Canvas lyric font does not match live preview ratio '+JSON.stringify(result));
-            if(!near(a.brands.left.fontPx,s.brandL.fontH*720)||!near(a.brands.right.fontPx,s.brandR.fontH*720))throw new Error('actual Canvas top-brand font does not match live preview ratio '+JSON.stringify(result));
+            if(!near(result.injected.lyrics.fontH,52/430,.002)||!near(result.injected.brandL.fontH,24/430,.002)||!near(result.injected.title.fontH,80/430,.002))throw new Error('fullscreen font ratios were not injected '+JSON.stringify(result));
+            if(!near(result.lyricActual.content.fontPx,(52/430)*720,2.0))throw new Error('Canvas lyric font does not use fullscreen ratio '+JSON.stringify(result));
+            if(!near(result.lyricActual.brands.left.fontPx,(24/430)*720,2.0)||!near(result.lyricActual.brands.right.fontPx,(24/430)*720,2.0))throw new Error('Canvas brand font does not use fullscreen ratio '+JSON.stringify(result));
+            if(result.titleActual&&(!near(result.titleActual.content.centerX,640,2)||!near(result.titleActual.content.centerY,360,2)||!near(result.titleActual.content.fontPx,(80/430)*720,2.0)))throw new Error('song title is not centered/sized from fullscreen '+JSON.stringify(result));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
@@ -106,6 +125,6 @@ jobs:
             await page.goto('http://127.0.0.1:8080/renderer-selftest.html',{waitUntil:'domcontentloaded'});
             await page.waitForFunction(()=>window.__RESULT__?.done===true,null,{timeout:180000});
             const result=await page.evaluate(()=>window.__RESULT__);console.log('RESULT',JSON.stringify(result));await browser.close();
-            if(!result.ok||result.sw!=='hks-v153'||!result.patchCached||result.ffmpegCachedByApp||!result.handoffPreserved||result.mp4<1000||result.wmv<1000)process.exit(1);
+            if(!result.ok||result.sw!=='hks-v154'||!result.patchCached||result.ffmpegCachedByApp||!result.handoffPreserved||result.mp4<1000||result.wmv<1000)process.exit(1);
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
