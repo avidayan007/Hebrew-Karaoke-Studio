@@ -7,8 +7,18 @@ async function load({coreURL,wasmURL,workerURL}={}){
   const first=!ffmpeg;
   const wURL=workerURL||coreURL.replace(/\.js$/,'\.worker.js');
   ffmpeg=await createFFmpegCore({mainScriptUrlOrBlob:`${coreURL}#${btoa(JSON.stringify({wasmURL:wasmURL||coreURL.replace(/\.js$/,'.wasm'),workerURL:wURL}))}`});
-  ffmpeg.setLogger(data=>post(undefined,'LOG',data));
-  ffmpeg.setProgress(data=>post(undefined,'PROGRESS',data));
+  // iPhone/Safari: forwarding every FFmpeg log/progress callback can flood the main
+  // thread during a long encode. Keep error logs and cap progress telemetry to ~4 Hz.
+  let lastProgressPost=0,lastProgress=-1;
+  ffmpeg.setLogger(data=>{
+    const m=String(data?.message||'');
+    if(/error|failed|invalid|fatal|abort|out of memory/i.test(m))post(undefined,'LOG',data);
+  });
+  ffmpeg.setProgress(data=>{
+    const now=Date.now(),p=Number(data?.progress);
+    const important=Number.isFinite(p)&&(p>=.995||p<lastProgress);
+    if(now-lastProgressPost>=250||important){lastProgressPost=now;if(Number.isFinite(p))lastProgress=p;post(undefined,'PROGRESS',data)}
+  });
   return first;
 }
 function exec({args,timeout=-1}){ffmpeg.setTimeout(timeout);ffmpeg.exec(...args);const r=ffmpeg.ret;ffmpeg.reset();return r}
