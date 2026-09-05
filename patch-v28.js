@@ -1,7 +1,7 @@
 // Hebrew Karaoke Studio Web v1.28 — pre-render filename + iPhone save destination flow
 (function(){
   const $=s=>document.querySelector(s);
-  let baseName='karaoke';
+  let baseName='karaoke';window.__hksExportBaseName=window.__hksExportBaseName||baseName;
   const cleanName=s=>(String(s||'').trim().replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,' ').replace(/^\.+|\.+$/g,'').slice(0,80)||'karaoke');
 
   const style=document.createElement('style');
@@ -28,7 +28,7 @@
     const originalSetDownloadLink=setDownloadLink;
     setDownloadLink=function(id,blob,name){
       const ext=(name||'').toLowerCase().endsWith('.wmv')?'.wmv':'.mp4';
-      const finalName=baseName+ext;
+      const finalName=cleanName(window.__hksExportBaseName||baseName)+ext;
       originalSetDownloadLink(id,blob,finalName);
       const a=$(id);if(a){a.download=finalName;a.textContent=(ext==='.wmv'?'⬇️ שמור WMV — ':'⬇️ שמור MP4 — ')+finalName;}
     };
@@ -40,13 +40,13 @@
     renderBtn.onclick=()=>{
       if(exportBusy)return;
       const input=$('#exportFileName');
-      input.value=baseName;
+      input.value=cleanName(window.__hksExportBaseName||baseName);
       overlay.classList.add('show');
       setTimeout(()=>{input.focus();input.select();},50);
     };
     $('#exportSetupCancel').onclick=()=>overlay.classList.remove('show');
     $('#exportSetupStart').onclick=()=>{
-      baseName=cleanName($('#exportFileName').value);
+      baseName=cleanName($('#exportFileName').value);window.__hksExportBaseName=baseName;
       $('#exportFileName').value=baseName;
       overlay.classList.remove('show');
       setStatus('שם הקבצים: '+baseName+' — מתחיל רינדור');
