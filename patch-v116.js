@@ -1,5 +1,17 @@
 // Avi Karaoke Studio Web v1.116 — whole-app zoom + fit-to-screen
 (function(){
+  const isiOS=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(isiOS){
+    // CSS body zoom is a desktop-only feature. On iPhone Safari it can create
+    // large white paint gaps and make taps/scrolling feel frozen.
+    document.body.style.removeProperty('zoom');
+    document.body.style.removeProperty('width');
+    document.body.style.removeProperty('max-width');
+    document.documentElement.style.removeProperty('overflow-x');
+    window.__hksUiScale116={get scale(){return 1},set:()=>{},fit:()=>{}};
+    return;
+  }
+
   const KEY='hksUiScale116';
   let scale=Math.max(.60,Math.min(1.20,Number(localStorage.getItem(KEY)||1)));
 
@@ -26,14 +38,12 @@
   const val=document.getElementById('hksUiVal116');
   function apply(next,save=true){
     scale=Math.max(.60,Math.min(1.20,Math.round(Number(next)*20)/20));
-    // CSS zoom changes the actual layout size, so the whole studio can fit on one monitor without vertical scrolling.
     document.body.style.zoom=String(scale);
     if(val)val.textContent=Math.round(scale*100)+'%';
     if(save)localStorage.setItem(KEY,String(scale));
     setTimeout(()=>{try{window.__hksDrawSyncWave?.()}catch(_){}},50);
   }
   function fit(){
-    // Measure once at 100%, then choose the largest 5% step that fits the current monitor height.
     document.body.style.zoom='1';
     requestAnimationFrame(()=>{
       const contentH=Math.max(document.documentElement.scrollHeight,document.body.scrollHeight,1);
