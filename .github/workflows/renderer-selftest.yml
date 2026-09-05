@@ -12,6 +12,7 @@ on:
       - 'patch-v148.js'
       - 'patch-v149.js'
       - 'patch-v150.js'
+      - 'patch-v151.js'
       - 'version.json'
       - 'sw.js'
       - 'vendor/ffmpeg/**'
@@ -26,34 +27,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify v1.150 sync history wiring
+      - name: Verify v1.151 compact history wiring
         run: |
           node --check patch-v30.js
-          node --check patch-v131.js
-          node --check patch-v146.js
-          node --check patch-v147.js
-          node --check patch-v148.js
-          node --check patch-v149.js
           node --check patch-v150.js
+          node --check patch-v151.js
           node --check sw.js
-          node --check vendor/ffmpeg/ffmpeg/worker-classic.js
           node - <<'NODE'
           const fs=require('fs');
           const loader=fs.readFileSync('patch-v30.js','utf8');
           const sw=fs.readFileSync('sw.js','utf8');
-          const index=fs.readFileSync('index.html','utf8');
-          const p149=fs.readFileSync('patch-v149.js','utf8');
-          const p150=fs.readFileSync('patch-v150.js','utf8');
+          const p151=fs.readFileSync('patch-v151.js','utf8');
           const version=JSON.parse(fs.readFileSync('version.json','utf8'));
           const selftest=fs.readFileSync('renderer-selftest.html','utf8');
-          if(!loader.includes('__hksLoaderVersion=150')||!loader.includes('146,147,148,149,150')||!loader.includes('__hksStartupMs150'))throw Error('v150 loader wiring missing');
-          if(version.version!==150)throw Error('version.json is not 150');
-          if(!index.includes('patch-v30.js?v=150')||!index.includes('Web v1.150 — טוען'))throw Error('v150 app shell wiring missing');
-          if(!sw.includes("CACHE='hks-v150'")||!sw.includes("patch-v150.js?v=150"))throw Error('v150 service worker missing');
-          for(const marker of ['__hksWaveFollow149','requestAnimationFrame(frame)','audio.addEventListener(\'pause\',stopFollow)','audio.addEventListener(\'seeked\'','around 42%'])if(!p149.includes(marker))throw Error('waveform marker missing: '+marker);
-          for(const marker of ['__hksSyncHistory150','redoBtn150','LIMIT=1000','function doUndo()','function doRedo()','resetBtn','Space sync'])if(!p150.includes(marker))throw Error('v150 history marker missing: '+marker);
-          if(!selftest.includes('register-service-worker-v150')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v150 renderer self-test wiring missing');
-          console.log('v1.150 wiring OK');
+          if(!loader.includes('__hksLoaderVersion=151')||!loader.includes('149,150,151')||!loader.includes('__hksStartupMs151'))throw Error('v151 loader wiring missing');
+          if(version.version!==151)throw Error('version.json is not 151');
+          if(!sw.includes("CACHE='hks-v151'")||!sw.includes("patch-v151.js?v=151"))throw Error('v151 service worker missing');
+          for(const marker of ['__hksCompactHistory151','hksTopActions151','hksUndo151','hksRedo151','44px','hksHistoryRow150'])if(!p151.includes(marker))throw Error('v151 compact history marker missing: '+marker);
+          if(!selftest.includes('register-service-worker-v151')||!selftest.includes('render-mp4-720p-aac320')||!selftest.includes('render-wmv-720p-pcm-s16le-48k-stereo'))throw Error('v151 renderer self-test wiring missing');
+          console.log('v1.151 wiring OK');
           NODE
       - name: Install Playwright WebKit
         run: |
@@ -64,7 +56,7 @@ jobs:
         run: |
           python3 -m http.server 8080 >/tmp/server.log 2>&1 &
           sleep 2
-      - name: Verify waveform follow and multi-step Undo Redo
+      - name: Verify compact Undo Redo beside Refresh Update
         run: |
           node <<'NODE'
           const { webkit } = require('playwright');
@@ -72,47 +64,23 @@ jobs:
             const browser=await webkit.launch({headless:true});
             const page=await browser.newPage({viewport:{width:430,height:932},userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'});
             page.on('pageerror',e=>console.error('PAGEERROR:',e.message));
-            await page.goto('http://127.0.0.1:8080/index.html?hksUpdate=150&_=123',{waitUntil:'domcontentloaded'});
-            await page.waitForFunction(()=>document.querySelector('.version')?.textContent==='Web v1.150'&&window.__hksWaveFollow149===true&&window.__hksWaveFollow149Api&&window.__hksSyncHistory150Api,null,{timeout:25000});
-
-            const history=await page.evaluate(()=>{
-              document.getElementById('lyricsText').value='אחד שני שלוש';
-              prepare();
-              const api=window.__hksSyncHistory150Api;api.clear();
-              words[0].time=1;current=1;api.scan();
-              words[1].time=2;current=2;api.scan();
-              words[0].time=1.25;api.scan();
-              const afterThree={u:api.undoCount,r:api.redoCount,t:words.map(w=>w.time),c:current};
-              api.undo();const u1={u:api.undoCount,r:api.redoCount,t:words.map(w=>w.time),c:current};
-              api.undo();const u2={u:api.undoCount,r:api.redoCount,t:words.map(w=>w.time),c:current};
-              api.undo();const u3={u:api.undoCount,r:api.redoCount,t:words.map(w=>w.time),c:current};
-              api.redo();api.redo();api.redo();const r3={u:api.undoCount,r:api.redoCount,t:words.map(w=>w.time),c:current};
-              reset();api.scan();const afterReset={u:api.undoCount,t:words.map(w=>w.time),c:current};
-              api.undo();const undoReset={u:api.undoCount,r:api.redoCount,t:words.map(w=>w.time),c:current};
-              return{afterThree,u1,u2,u3,r3,afterReset,undoReset,hasUndo:!!document.getElementById('undoBtn'),hasRedo:!!document.getElementById('redoBtn150'),limit:api.limit};
+            await page.goto('http://127.0.0.1:8080/index.html?hksUpdate=151&_=123',{waitUntil:'domcontentloaded'});
+            await page.waitForFunction(()=>document.querySelector('.version')?.textContent==='Web v1.151'&&window.__hksSyncHistory150Api&&window.__hksCompactHistory151Api,null,{timeout:25000});
+            const result=await page.evaluate(()=>{
+              document.getElementById('lyricsText').value='אחד שני שלוש';prepare();
+              const hist=window.__hksSyncHistory150Api,ui=window.__hksCompactHistory151Api;hist.clear();
+              words[0].time=1;current=1;hist.scan();
+              words[1].time=2;current=2;hist.scan();ui.paint();
+              const undo=document.getElementById('hksUndo151'),redo=document.getElementById('hksRedo151'),refresh=document.getElementById('hksRefresh105');
+              const ur=undo.getBoundingClientRect(),rr=redo.getBoundingClientRect();
+              const sameWrap=!!refresh&&refresh.parentElement?.id==='hksTopActions151'&&undo.parentElement===refresh.parentElement&&redo.parentElement===refresh.parentElement;
+              ui.undo();const afterUndo=words.map(w=>w.time);ui.redo();const afterRedo=words.map(w=>w.time);
+              return{version:document.querySelector('.version')?.textContent,largeRow:!!document.getElementById('hksHistoryRow150'),counter:!!document.getElementById('hksHistoryCount150'),sameWrap,uw:ur.width,uh:ur.height,rw:rr.width,rh:rr.height,afterUndo,afterRedo};
             });
-            console.log('HISTORY',JSON.stringify(history));
-            const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-            if(!history.hasUndo||!history.hasRedo||history.limit!==1000)throw new Error('history UI/API missing');
-            if(history.afterThree.u!==3||history.afterThree.r!==0||!eq(history.afterThree.t,[1.25,2,null])||history.afterThree.c!==2)throw new Error('three-step history capture failed '+JSON.stringify(history.afterThree));
-            if(!eq(history.u1.t,[1,2,null])||!eq(history.u2.t,[1,null,null])||!eq(history.u3.t,[null,null,null])||history.u3.c!==0||history.u3.r!==3)throw new Error('multi undo failed '+JSON.stringify(history));
-            if(!eq(history.r3.t,[1.25,2,null])||history.r3.c!==2||history.r3.r!==0)throw new Error('multi redo failed '+JSON.stringify(history.r3));
-            if(!eq(history.afterReset.t,[null,null,null])||!eq(history.undoReset.t,[1.25,2,null])||history.undoReset.c!==2)throw new Error('undo reset failed '+JSON.stringify(history));
-
-            const wave=await page.evaluate(()=>{
-              const audio=document.getElementById('audio');
-              Object.defineProperty(audio,'duration',{value:100,configurable:true});
-              Object.defineProperty(audio,'currentTime',{value:50,writable:true,configurable:true});
-              const calls=[];
-              window.__hksWaveView125={zoom:10,pan:0,view(){return{start:0,end:10,span:10}},set(z,p){this.zoom=z;this.pan=p;calls.push({z,p})}};
-              window.__hksWaveFollow149Api.update();
-              const afterUpdate=calls[calls.length-1]||null;
-              window.__hksWaveFollow149Api.stop();
-              const afterStop=calls[calls.length-1]||null;
-              return{version:document.querySelector('.version')?.textContent,calls,afterUpdate,afterStop,active:window.__hksWaveFollow149Api.active};
-            });
-            console.log('WAVEFOLLOW',JSON.stringify(wave));
-            if(wave.version!=='Web v1.150'||!wave.afterUpdate||wave.afterUpdate.z!==10||!(wave.afterUpdate.p>0.45&&wave.afterUpdate.p<0.56)||wave.active!==false||wave.calls.length<2)throw new Error('waveform follow failed '+JSON.stringify(wave));
+            console.log('COMPACT',JSON.stringify(result));
+            if(result.version!=='Web v1.151'||result.largeRow||result.counter||!result.sameWrap)throw new Error('compact placement failed '+JSON.stringify(result));
+            if(result.uw>48||result.rw>48||result.uh>40||result.rh>40)throw new Error('history buttons are not compact '+JSON.stringify(result));
+            if(JSON.stringify(result.afterUndo)!==JSON.stringify([1,null,null])||JSON.stringify(result.afterRedo)!==JSON.stringify([1,2,null]))throw new Error('compact undo redo behavior failed '+JSON.stringify(result));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
@@ -127,6 +95,6 @@ jobs:
             await page.goto('http://127.0.0.1:8080/renderer-selftest.html',{waitUntil:'domcontentloaded'});
             await page.waitForFunction(()=>window.__RESULT__?.done===true,null,{timeout:180000});
             const result=await page.evaluate(()=>window.__RESULT__);console.log('RESULT',JSON.stringify(result));await browser.close();
-            if(!result.ok||result.sw!=='hks-v150'||!result.patchCached||result.ffmpegCachedByApp||!result.handoffPreserved||result.mp4<1000||result.wmv<1000)process.exit(1);
+            if(!result.ok||result.sw!=='hks-v151'||!result.patchCached||result.ffmpegCachedByApp||!result.handoffPreserved||result.mp4<1000||result.wmv<1000)process.exit(1);
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
