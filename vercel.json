@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "ignoreCommand": "if [ \"$VERCEL_PROJECT_ID\" = \"prj_kBCYcWqudCSWxMmblsGZ3Tk4BT6l\" ] || [ \"$VERCEL_PROJECT_ID\" = \"prj_RYCFxTPxYy1NEsCvZCYvSXJbKACl\" ]; then exit 0; else exit 1; fi",
   "functions": {
     "api/render.js": { "maxDuration": 300 }
   },
